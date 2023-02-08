@@ -4,12 +4,10 @@ import numpy as np
 import utils
 from numba import njit
 
-
 def create_path(rest):
     # FIXME my dir is now retrieved repeatedly
     my_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.abspath(os.path.join(my_dir, rest))
-
 
 class SusquehannaModel:
     gammaH20 = 1000.0
@@ -98,14 +96,6 @@ class SusquehannaModel:
         # Turbine-Pumping capacity (cfs) - efficiency of Muddy Run plant (
         # equal for the 8 units)
 
-        self.historic_data = historic_data
-        if historic_data:
-            self.load_historic_data()
-            self.evaluate = self.evaluate_historic
-        else:
-            self.load_stochastic_data()
-            self.evaluate = self.evaluate_mc
-
         # objectives parameters
         self.energy_prices = utils.loadArrangeMatrix(
             create_path("./data1999/Pavg99.txt"), 24, self.n_days_one_year
@@ -135,6 +125,38 @@ class SusquehannaModel:
         self.output_max.append(utils.computeMax(self.w_chester))
         self.output_max.append(85412)
         # max release = tot turbine capacity + spillways @ max storage
+
+    def __call__(self, historic_data=True, *args, **kwargs):
+        # lever_count = self.overarching_policy.get_total_parameter_count()
+        # (
+        #     obj
+        # ) = self.evaluate(
+        #     # np.array(input_parameters)
+        #
+        # n_decision_vars = len(rbf_input.platypus_types)
+
+        n_decision_vars = len(self.rbf.platypus_types)
+        input_parameters = [kwargs["v" + str(i)] for i in range(n_decision_vars)]
+        print(input_parameters)
+        if historic_data == True:
+            self.evaluate = self.evaluate_historic
+        else:
+            self.evaluate = self.evaluate_mc
+
+            
+        (
+            Jhydropower,
+            Jatomicpowerplant,
+            Jbaltimore,
+            Jchester,
+            Jenvironment,
+            Jrecreation,
+        ) = self.evaluate(np.array(input_parameters))
+
+        return Jhydropower, Jatomicpowerplant, Jbaltimore, Jchester, Jenvironment, Jrecreation
+
+        #initialize Policy
+        # self.overarching_policy = Policy()
 
     def load_historic_data(self):
         self.evap_CO_MC = utils.loadMultiVector(
@@ -180,6 +202,7 @@ class SusquehannaModel:
         self.inflow_Muddy_MC = utils.loadMatrix(
             "./dataMC/nMR_MC.txt", self.n_years, self.n_days_one_year
         )  # inflow to Muddy Run (cfs)
+
 
     def set_log(self, log_objectives):
         if log_objectives:
@@ -245,12 +268,14 @@ class SusquehannaModel:
                 self.evap_Muddy_MC,
                 opt_met,
             )
+
             Jhyd.append(Jhydropower)
             Jatom.append(Jatomicpowerplant)
             Jbal.append(Jbaltimore)
             Jche.append(Jchester)
             Jenv.append(Jenvironment)
             Jrec.append(Jrecreation)
+            print("Jhyd", Jhyd)
 
         # objectives aggregation (minimax)
         obj.insert(0, np.percentile(Jhyd, 99))
@@ -785,10 +810,8 @@ class SusquehannaModel:
             # sub-daily cycle
             for j in range(self.decisions_per_day):
                 decision_step = t * self.decisions_per_day + j
-
                 # decision step i in a year
                 jj = decision_step % decision_steps_per_year
-
                 # compute decision
                 if opt_met == 0:  # fixed release
                     # FIXME will crash because uu is empty list
