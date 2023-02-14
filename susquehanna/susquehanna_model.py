@@ -14,7 +14,7 @@ class SusquehannaModel:
     GG = 9.81
     n_days_in_year = 365
 
-    def __init__(self, l0, l0_muddy_run, d0, n_years, rbf, historic_data=True):
+    def __init__(self, l0, l0_muddy_run, d0, n_years, rbf):
         """
 
         Parameters
@@ -125,39 +125,6 @@ class SusquehannaModel:
         self.output_max.append(utils.computeMax(self.w_chester))
         self.output_max.append(85412)
         # max release = tot turbine capacity + spillways @ max storage
-
-    def __call__(self, historic_data=True, *args, **kwargs):
-        # lever_count = self.overarching_policy.get_total_parameter_count()
-        # (
-        #     obj
-        # ) = self.evaluate(
-        #     # np.array(input_parameters)
-        #
-        # n_decision_vars = len(rbf_input.platypus_types)
-
-        n_decision_vars = len(self.rbf.platypus_types)
-        input_parameters = [kwargs["v" + str(i)] for i in range(n_decision_vars)]
-        print(input_parameters)
-        if historic_data == True:
-            self.evaluate = self.evaluate_historic
-        else:
-            self.evaluate = self.evaluate_mc
-
-            
-        (
-            Jhydropower,
-            Jatomicpowerplant,
-            Jbaltimore,
-            Jchester,
-            Jenvironment,
-            Jrecreation,
-        ) = self.evaluate(np.array(input_parameters))
-
-        return Jhydropower, Jatomicpowerplant, Jbaltimore, Jchester, Jenvironment, Jrecreation
-
-        #initialize Policy
-        # self.overarching_policy = Policy()
-
     def load_historic_data(self):
         self.evap_CO_MC = utils.loadMultiVector(
             create_path("./data_historical/vectors/evapCO_history.txt"),
@@ -202,6 +169,40 @@ class SusquehannaModel:
         self.inflow_Muddy_MC = utils.loadMatrix(
             "./dataMC/nMR_MC.txt", self.n_years, self.n_days_one_year
         )  # inflow to Muddy Run (cfs)
+
+
+    def __call__(self, historic_data=True, *args, **kwargs):
+        # lever_count = self.overarching_policy.get_total_parameter_count()
+        # (
+        #     obj
+        # ) = self.evaluate(
+        #     # np.array(input_parameters)
+        #
+        # n_decision_vars = len(rbf_input.platypus_types)
+
+        # n_decision_vars = self.rbf.platypus_types
+        # input_parameters = [i for i in n_decision_vars] #what should it be?
+
+        # print(input_parameters)
+        if historic_data == True:
+            self.evaluate = self.evaluate_historic
+        else:
+            self.evaluate = self.evaluate_mc
+
+
+        (
+            Jhydropower,
+            Jatomicpowerplant,
+            Jbaltimore,
+            Jchester,
+            Jenvironment,
+            Jrecreation,
+        ) = self.evaluate(self.rbf)
+
+        return Jhydropower, Jatomicpowerplant, Jbaltimore, Jchester, Jenvironment, Jrecreation
+
+        #initialize Policy
+        # self.overarching_policy = Policy()
 
 
     def set_log(self, log_objectives):
@@ -275,7 +276,6 @@ class SusquehannaModel:
             Jche.append(Jchester)
             Jenv.append(Jenvironment)
             Jrec.append(Jrecreation)
-            print("Jhyd", Jhyd)
 
         # objectives aggregation (minimax)
         obj.insert(0, np.percentile(Jhyd, 99))

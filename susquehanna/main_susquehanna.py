@@ -8,30 +8,27 @@ import csv
 import logging
 # import os-sys
 # import sys
-from ema_workbench.em_framework.optimization import EpsilonProgress,HyperVolume
+from ema_workbench.em_framework.optimization import EpsilonProgress, HyperVolume
 
 
 import pandas as pd
 from ema_workbench import (Model, ScalarOutcome, RealParameter)
 # from platypus import Problem, EpsNSGAII, Real, ProcessPoolEvaluator
-from ema_workbench import SequentialEvaluator, MultiprocessingEvaluator, ema_logging, perform_experiments
+from ema_workbench import MultiprocessingEvaluator, ema_logging
 
 from rbf import rbf_functions
-from susquehanna.susquehanna_model import SusquehannaModel
+from susquehanna_model import SusquehannaModel
 
 # module_path = os.path.abspath(os.path.join(".."))
 # if module_path not in sys.path:
 #     sys.path.append(module_path)
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
+def main():
     # RBF parameters
     n_inputs = 2  # (time, storage of Conowingo)
     n_outputs = 4
-    n_rbfs = 4
-    rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=rbf_functions.original_rbf)
-
+    n_rbfs = 4 #changed from 4, or 1 now?
+    rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=[rbf_functions.original_rbf])
     #model
 
     # Load the model:
@@ -105,7 +102,7 @@ if __name__ == "__main__":
     direction_max = ScalarOutcome.MAXIMIZE
 
 
-        #specify objectives
+    #specify objectives
     ema_susquehanna_model.outcomes = [
         ScalarOutcome('Hydropower Revenue',
                       direction_max),
@@ -181,3 +178,7 @@ if __name__ == "__main__":
     #
     with MultiprocessingEvaluator(ema_susquehanna_model) as evaluator:
         results = evaluator.optimize(nfe=5, searchover="levers", convergence=convergence_metrics, epsilons=epsilon_list)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    main()
