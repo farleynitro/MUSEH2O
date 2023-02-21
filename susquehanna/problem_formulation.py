@@ -107,41 +107,93 @@ class EgalitarianProblem(Problem):
         self.susquehanna_river.set_log(False)
         self.directions[:] = Problem.MINIMIZE
 
+    @staticmethod
+    def array_results(x):
+        arrays = []
+        for i in x:
+            new_array = [i]
+            arrays.append(new_array)
+        return arrays
+    @staticmethod
+    def euclidean_distance(x):
+        for i in range(x_array):
+            if i != 0:
+                euclidean_distance_value += math.sqrt((x_array[i] ** 2) - (x_array[i-1] ** 2))
+            else:
+                pass
+        return euclidean_distance_value
+
+    @staticmethod
+    def euclidean_distance(x1, x2):
+        if len(x1) != len(x2):
+            raise ValueError("Both points must be of same length")
+
+        squared_distance = 0
+        for i in range(len(x1)):
+            squared_distance += (x1[i] - x2[i]) ** 2
+        distance = math.sqrt(squared_distance)
+
+        return distance
+
+    @staticmethod
+    def euclidean_distance_multiple(x):
+        total_distance = 0
+        x_array = EgalitarianProblem.array_results(x)
+        for i in range(len(x_array) - 1):
+            total_distance += EgalitarianProblem.euclidean_distance(x_array[i], x_array[i + 1])
+        return total_distance
+
     def evaluate(self, solution):
         x = solution.variables
         self.function = self.susquehanna_river.evaluate
 
         y = self.function(x)
-        j_hyd, j_atom, j_balt, j_ches, j_env, j_rec = y
+        y = list(y)
+        euclidean_distance = EgalitarianProblem.euclidean_distance_multiple(y)
+        #egalitarian_aggregated
 
-
-        y_result = euclidean_distance(y)
-        print(y_result)
-        # y_egalitarian = math.dist(j_hyd, j_atom, j_balt, j_ches, j_env, j_rec)
-
-        # utilitarian_aggregated
-
-        y_minimize = [y_egalitarian]
+        y_minimize = euclidean_distance
 
         # set objective values
-        solution.objectives[:] = [y_minimize]
+        solution.objectives[0] = y_minimize
 
         # apply direction of optimization to each objective
-        solution.objectives[:] = [solution.objectives[:] * self.directions[:]]
+        solution.objectives[:] = [solution.objectives[0] * self.directions[0]]
+
+class SufficientarianProblem(Problem):
+    def __init__(self,
+             n_decision_vars,
+             n_objectives,
+             n_years,
+             rbf):
+        super(EgalitarianProblem, self).__init__(n_decision_vars,
+                                                 n_objectives)
+
+       #initialize rbf
+        self.types[:] = rbf.platypus_types
+
+        #initialize model
+        self.susquehanna_river = SusquehannaModel(108.5, 505.0, 5, n_years, rbf)
+        self.susquehanna_river.set_log(False)
+        self.directions[:] = Problem.MINIMIZE
 
 
-@staticmethod
-def euclidean_distance(x):
-    x_array = np.asarray(x, axis=0)
-    euclidean_distance_value = 0
+class PrioritarianProblem(Problem):
+    def __init__(self,
+             n_decision_vars,
+             n_objectives,
+             n_years,
+             rbf):
+        super(EgalitarianProblem, self).__init__(n_decision_vars,
+                                                 n_objectives)
 
-    for i in range(x_array):
-        if i != 0:
-            euclidean_distance_value += math.sqrt((x_array[i]**2) - (x_array[i-1]**2))
-        else:
-            pass
-    return euclidean_distance_value
+       #initialize rbf
+        self.types[:] = rbf.platypus_types
 
+        #initialize model
+        self.susquehanna_river = SusquehannaModel(108.5, 505.0, 5, n_years, rbf)
+        self.susquehanna_river.set_log(False)
+        self.directions[:] = Problem.MINIMIZE
 
 # def formulation_possible(var):
 #     possible = False

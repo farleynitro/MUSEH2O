@@ -38,8 +38,8 @@ class TrackProgress:
         return df_imp, df_hv
 
 
-def store_results(algorithm, track_progress, output_dir, rbf_name, seed_id):
-    path_name = f"{output_dir}/{rbf_name}"
+def store_results(algorithm, track_progress, output_dir, objective_formulation, seed_id):
+    path_name = f"{output_dir}/{objective_formulation}"
 
     if not os.path.exists(path_name):
         try:
@@ -58,7 +58,7 @@ def store_results(algorithm, track_progress, output_dir, rbf_name, seed_id):
         "recreation",
     ]
     with open(
-        f"{output_dir}/{rbf_name}/{seed_id}_solution.csv",
+        f"{output_dir}/{objective_formulation}/{seed_id}_solution.csv",
         "w",
         encoding="UTF8",
         newline="",
@@ -69,7 +69,7 @@ def store_results(algorithm, track_progress, output_dir, rbf_name, seed_id):
             writer.writerow(solution.objectives)
 
     with open(
-        f"{output_dir}/{rbf_name}/{seed_id}_variables.csv",
+        f"{output_dir}/{objective_formulation}/{seed_id}_variables.csv",
         "w",
         encoding="UTF8",
         newline="",
@@ -80,8 +80,8 @@ def store_results(algorithm, track_progress, output_dir, rbf_name, seed_id):
 
     # save progress info
     df_conv, df_hv = track_progress.to_dataframe()
-    df_conv.to_csv(f"{output_dir}/{rbf_name}/{seed_id}_convergence.csv")
-    df_hv.to_csv(f"{output_dir}/{rbf_name}/{seed_id}_hypervolume.csv")
+    df_conv.to_csv(f"{output_dir}/{objective_formulation}/{seed_id}_convergence.csv")
+    df_hv.to_csv(f"{output_dir}/{objective_formulation}/{seed_id}_hypervolume.csv")
 
 
 def main():
@@ -104,22 +104,26 @@ def main():
         n_decision_vars = len(rbf.platypus_types)
 
         #choose out of the following problems
-        problem_1 = OriginalProblem(n_decision_vars, n_objectives_utilitiarian_disaggregated, n_years, rbf)
-        problem_2 = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian_aggregated, n_years, rbf)
-        problem_3 = EgalitarianProblem(n_decision_vars, n_objectives_egalitarian, n_years, rbf)
+        original = OriginalProblem(n_decision_vars, n_objectives_utilitiarian_disaggregated, n_years, rbf)
+        utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian_aggregated, n_years, rbf)
+        egalitarian = EgalitarianProblem(n_decision_vars, n_objectives_egalitarian, n_years, rbf)
 
-        epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
+        #choose problem
+        problem_choice = utilitarian
+
+        # epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
+        epsilons = [0.5]
 
         # algorithm = EpsNSGAII(problem, epsilons=epsilons)
         # algorithm.run(1000)
 
         track_progress = TrackProgress()
         with ProcessPoolEvaluator() as evaluator:
-            algorithm = EpsNSGAII(problem_3, epsilons=epsilons, evaluator=evaluator)
+            algorithm = EpsNSGAII(problem_choice, epsilons=epsilons, evaluator=evaluator)
             algorithm.run(250, track_progress)
 
         store_results(
-            algorithm, track_progress, "output_farley", f"{entry.__name__}", seed
+            algorithm, track_progress, "output_farley", f"{problem_choice.__class__.__name__}", seed
         )
 
 
