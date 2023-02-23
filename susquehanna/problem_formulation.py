@@ -166,7 +166,7 @@ class SufficientarianProblem(Problem):
              n_objectives,
              n_years,
              rbf):
-        super(EgalitarianProblem, self).__init__(n_decision_vars,
+        super(SufficientarianProblem, self).__init__(n_decision_vars,
                                                  n_objectives)
 
        #initialize rbf

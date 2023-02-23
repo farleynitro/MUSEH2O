@@ -98,6 +98,7 @@ def main():
         n_objectives_utilitiarian_disaggregated = 6
         n_objectives_utilitarian_aggregated = 2
         n_objectives_egalitarian = 1
+        n_objectives_sufficientarian = 6
         n_rbfs = 4
 
         rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=entry)
@@ -111,8 +112,8 @@ def main():
         #choose problem
         problem_choice = utilitarian
 
-        # epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
-        epsilons = [0.5]
+        epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
+        # epsilons = [0.5]
 
         # algorithm = EpsNSGAII(problem, epsilons=epsilons)
         # algorithm.run(1000)
@@ -120,7 +121,7 @@ def main():
         track_progress = TrackProgress()
         with ProcessPoolEvaluator() as evaluator:
             algorithm = EpsNSGAII(problem_choice, epsilons=epsilons, evaluator=evaluator)
-            algorithm.run(250, track_progress)
+            algorithm.run(1000, track_progress)
 
         store_results(
             algorithm, track_progress, "output_farley", f"{problem_choice.__class__.__name__}", seed
