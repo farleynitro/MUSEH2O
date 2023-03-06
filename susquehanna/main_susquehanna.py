@@ -14,7 +14,7 @@ import random
 from platypus import Problem, EpsNSGAII, Real, ProcessPoolEvaluator
 
 from problem_formulation import OriginalProblem
-from problem_formulation_test_v1 import PriorityProblem
+from problem_formulation_test_v1 import PriorityGiniProblem
 from rbf import rbf_functions
 
 class TrackProgress:
@@ -109,7 +109,7 @@ def main():
         #choose out of the following problems
         original = OriginalProblem(n_decision_vars, n_objectives_utilitiarian_disaggregated, n_years, rbf)
         # utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian_aggregated, n_years, rbf)
-        priority = PriorityProblem(n_decision_vars, n_objectives_priority, n_years, rbf)
+        priority = PriorityGiniProblem(n_decision_vars, n_objectives_priority, n_years, rbf)
 
         #choose problem
         problem_choice = priority
