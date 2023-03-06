@@ -13,7 +13,8 @@ import random
 
 from platypus import Problem, EpsNSGAII, Real, ProcessPoolEvaluator
 
-from problem_formulation import OriginalProblem, UtilitarianProblem, EgalitarianProblem
+from problem_formulation import OriginalProblem
+from problem_formulation_test_v1 import PriorityProblem
 from rbf import rbf_functions
 
 class TrackProgress:
@@ -97,8 +98,9 @@ def main():
         #obje
         n_objectives_utilitiarian_disaggregated = 6
         n_objectives_utilitarian_aggregated = 2
-        n_objectives_egalitarian = 1
-        n_objectives_sufficientarian = 6
+        n_objectives_egalitarian = 7
+        n_objectives_priority = 7
+        n_objectives_sufficientarian = 7
         n_rbfs = 4
 
         rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=entry)
@@ -106,11 +108,11 @@ def main():
 
         #choose out of the following problems
         original = OriginalProblem(n_decision_vars, n_objectives_utilitiarian_disaggregated, n_years, rbf)
-        utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian_aggregated, n_years, rbf)
-        egalitarian = EgalitarianProblem(n_decision_vars, n_objectives_egalitarian, n_years, rbf)
+        # utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian_aggregated, n_years, rbf)
+        priority = PriorityProblem(n_decision_vars, n_objectives_priority, n_years, rbf)
 
         #choose problem
-        problem_choice = utilitarian
+        problem_choice = priority
 
         epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
         # epsilons = [0.5]
