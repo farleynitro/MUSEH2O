@@ -74,9 +74,12 @@ class PriorityProblem(Problem):
         x_array = PriorityProblem.array_results(x_input)
         for i in range(len(x_array)):
             for j in range(len(x_array)):
+                if i != j:
                 # print("x_array[i]", x_array[i])
-                total_distance += PriorityProblem.euclidean_distance_singular(x_array[i], x_array[j])
+                    total_distance += PriorityProblem.euclidean_distance_singular(x_array[i], x_array[j])
                 # print("total_distance", total_distance)
+                else:
+                    pass
         return total_distance
 
     def evaluate(self, solution):
