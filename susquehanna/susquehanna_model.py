@@ -4,19 +4,20 @@ import numpy as np
 import utils
 from numba import njit
 
+
 def create_path(rest):
     # FIXME my dir is now retrieved repeatedly
     my_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.abspath(os.path.join(my_dir, rest))
+
 
 class SusquehannaModel:
     gammaH20 = 1000.0
     GG = 9.81
     n_days_in_year = 365
 
-    def __init__(self, l0, l0_muddy_run, d0, n_years, rbf):
+    def __init__(self, l0, l0_muddy_run, d0, n_years, rbf, historic_data=True):
         """
-
         Parameters
         ----------
         l0 : float
@@ -30,7 +31,6 @@ class SusquehannaModel:
         historic_data : bool, optional
                         if true use historic data, if false use stochastic
                         data
-
         """
 
         self.init_level = l0  # feet
@@ -96,6 +96,15 @@ class SusquehannaModel:
         # Turbine-Pumping capacity (cfs) - efficiency of Muddy Run plant (
         # equal for the 8 units)
 
+        #adapt here to look for problem formulations
+        self.historic_data = historic_data
+        if historic_data:
+            self.load_historic_data()
+            self.evaluate = self.evaluate_historic
+        else:
+            self.load_stochastic_data()
+            self.evaluate = self.evaluate_mc
+
         # objectives parameters
         self.energy_prices = utils.loadArrangeMatrix(
             create_path("./data1999/Pavg99.txt"), 24, self.n_days_one_year
@@ -125,6 +134,7 @@ class SusquehannaModel:
         self.output_max.append(utils.computeMax(self.w_chester))
         self.output_max.append(85412)
         # max release = tot turbine capacity + spillways @ max storage
+
     def load_historic_data(self):
         self.evap_CO_MC = utils.loadMultiVector(
             create_path("./data_historical/vectors/evapCO_history.txt"),
@@ -169,41 +179,6 @@ class SusquehannaModel:
         self.inflow_Muddy_MC = utils.loadMatrix(
             "./dataMC/nMR_MC.txt", self.n_years, self.n_days_one_year
         )  # inflow to Muddy Run (cfs)
-
-
-    def __call__(self, historic_data=True, *args, **kwargs):
-        # lever_count = self.overarching_policy.get_total_parameter_count()
-        # (
-        #     obj
-        # ) = self.evaluate(
-        #     # np.array(input_parameters)
-        #
-        # n_decision_vars = len(rbf_input.platypus_types)
-
-        # n_decision_vars = self.rbf.platypus_types
-        # input_parameters = [i for i in n_decision_vars] #what should it be?
-
-        # print(input_parameters)
-        if historic_data == True:
-            self.evaluate = self.evaluate_historic
-        else:
-            self.evaluate = self.evaluate_mc
-
-
-        (
-            Jhydropower,
-            Jatomicpowerplant,
-            Jbaltimore,
-            Jchester,
-            Jenvironment,
-            Jrecreation,
-        ) = self.evaluate(self.rbf)
-
-        return Jhydropower, Jatomicpowerplant, Jbaltimore, Jchester, Jenvironment, Jrecreation
-
-        #initialize Policy
-        # self.overarching_policy = Policy()
-
 
     def set_log(self, log_objectives):
         if log_objectives:
@@ -269,7 +244,6 @@ class SusquehannaModel:
                 self.evap_Muddy_MC,
                 opt_met,
             )
-
             Jhyd.append(Jhydropower)
             Jatom.append(Jatomicpowerplant)
             Jbal.append(Jbaltimore)
@@ -810,8 +784,10 @@ class SusquehannaModel:
             # sub-daily cycle
             for j in range(self.decisions_per_day):
                 decision_step = t * self.decisions_per_day + j
+
                 # decision step i in a year
                 jj = decision_step % decision_steps_per_year
+
                 # compute decision
                 if opt_met == 0:  # fixed release
                     # FIXME will crash because uu is empty list
@@ -898,5 +874,7 @@ class SusquehannaModel:
         j_ches = self.g_vol_rel(release_c, self.w_chester)
         j_env = self.g_shortage_index(release_d, self.min_flow)
         j_rec = self.g_storagereliability(storage_co, self.h_ref_rec)
+
+        # need to change to different objectives
 
         return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec
