@@ -13,9 +13,18 @@ import random
 
 from platypus import Problem, EpsNSGAII, Real, ProcessPoolEvaluator
 
-from problem_formulation import OriginalProblem
-from problem_formulation_test_v1 import PriorityProblem
+from problem_formulation import OriginalProblem, EquityProblemEuclideanInsideReliabilityAllocation, EquityProblemEuclideanInsideReliability, EquityProblemEuclideanInsideAllocation, EquityProblemEuclideanOutsideReliabilityAllocation, EquityProblemEuclideanOutsideReliability, EquityProblemEuclideanOutsideAllocation
+# from problem_formulation_test_v1 import PriorityProblem
 from rbf import rbf_functions
+
+
+# OriginalProblem
+# EquityProblemEuclideanInsideReliabilityAllocation
+# EquityProblemEuclideanInsideReliability
+# EquityProblemEuclideanInsideAllocation
+# EquityProblemEuclideanOutsideReliabilityAllocation
+# EquityProblemEuclideanOutsideReliability
+# EquityProblemEuclideanOutsideAllocation
 
 class TrackProgress:
     def __init__(self):
@@ -41,7 +50,6 @@ class TrackProgress:
 
 def store_results(algorithm, track_progress, output_dir, objective_formulation, seed_id):
     path_name = f"{output_dir}/{objective_formulation}"
-
     if not os.path.exists(path_name):
         try:
             os.makedirs(path_name)
@@ -50,19 +58,58 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
         except OSError:
             print("Creation of the directory failed")
 
-    header = [
-        "hydropower",
-        "atomicpowerplant",
-        "baltimore",
-        "chester",
-        "environment",
-        "recreation",
-    ]
+    header = None
+
+    if objective_formulation in ['EquityProblemEuclideanInsideReliabilityAllocation', 'EquityProblemEuclideanOutsideReliabilityAllocation']:
+        header = [
+            "hydropower reliability",
+            "atomicpowerplant reliability",
+            "baltimore reliability",
+            "chester reliability",
+            "environment reliability",
+            "recreation reliability",
+            "allocation based equity",
+            "reliability based equity"
+        ]
+
+    elif objective_formulation in ['OriginalProblem']:
+        header = [
+            "hydropower reliability",
+            "atomicpowerplant reliability",
+            "baltimore reliability",
+            "chester reliability",
+            "environment reliability",
+            "recreation reliability"
+        ]
+
+    elif objective_formulation in ['EquityProblemEuclideanInsideReliability', 'EquityProblemEuclideanOutsideReliability']:
+        header = [
+            "hydropower reliability",
+            "atomicpowerplant reliability",
+            "baltimore reliability",
+            "chester reliability",
+            "environment reliability",
+            "recreation reliability",
+            "reliability based equity"
+        ]
+
+    elif objective_formulation in ['EquityProblemEuclideanInsideAllocation', 'EquityProblemEuclideanOutsideAllocation']:
+        header = [
+            "hydropower reliability",
+            "atomicpowerplant reliability",
+            "baltimore reliability",
+            "chester reliability",
+            "environment reliability",
+            "recreation reliability",
+            "recreation allocation",
+            # "reliability based equity"
+        ]
+
     with open(
-        f"{output_dir}/{objective_formulation}/{seed_id}_solution.csv",
-        "w",
-        encoding="UTF8",
-        newline="",
+            f"{output_dir}/{objective_formulation}/{seed_id}_solution.csv",
+            "w",
+            encoding="UTF8",
+            newline="",
     ) as f:
         writer = csv.writer(f)
         writer.writerow(header)
@@ -70,10 +117,10 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
             writer.writerow(solution.objectives)
 
     with open(
-        f"{output_dir}/{objective_formulation}/{seed_id}_variables.csv",
-        "w",
-        encoding="UTF8",
-        newline="",
+            f"{output_dir}/{objective_formulation}/{seed_id}_variables.csv",
+            "w",
+            encoding="UTF8",
+            newline="",
     ) as f:
         writer = csv.writer(f)
         for solution in algorithm.result:
@@ -83,7 +130,6 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
     df_conv, df_hv = track_progress.to_dataframe()
     df_conv.to_csv(f"{output_dir}/{objective_formulation}/{seed_id}_convergence.csv")
     df_hv.to_csv(f"{output_dir}/{objective_formulation}/{seed_id}_hypervolume.csv")
-
 
 def main():
     seeds = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
@@ -95,24 +141,35 @@ def main():
         n_outputs = 4
         n_years = 1
 
-        #obje
-        n_objectives_utilitiarian_disaggregated = 6
-        n_objectives_utilitarian_aggregated = 2
-        n_objectives_egalitarian = 7
-        n_objectives_priority = 7
-        n_objectives_sufficientarian = 7
+        #objectives, based on the distance based objective we can change the number of objectives.
+        n_objectives_original = 6
+        n_objectives_reliability_and_allocation = 8
+        n_objectives_reliability = 7
+        n_objectives_allocation = 7
         n_rbfs = 4
 
         rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=entry)
         n_decision_vars = len(rbf.platypus_types)
 
-        #choose out of the following problems
-        original = OriginalProblem(n_decision_vars, n_objectives_utilitiarian_disaggregated, n_years, rbf)
-        # utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian_aggregated, n_years, rbf)
-        priority = PriorityProblem(n_decision_vars, n_objectives_priority, n_years, rbf)
+        # choose out of the following problems
+        # 7 different objective formulations in total. They are meant for test runs where we test both the distance based optimization
+        # inside and outside the objective formulation. In the original problem we do not test it.
 
+        original = OriginalProblem(n_decision_vars, n_objectives_original, n_years, rbf)
+        equity_inside_reliability = EquityProblemEuclideanInsideReliability(n_decision_vars, n_objectives_reliability,
+                                                                            n_years, rbf)
+        equity_outside_reliability = EquityProblemEuclideanOutsideReliability(n_decision_vars, n_objectives_reliability,
+                                                                            n_years, rbf)
+        equity_inside_allocation = EquityProblemEuclideanInsideAllocation(n_decision_vars, n_objectives_allocation,
+                                                                          n_years, rbf)
+        equity_outside_allocation = EquityProblemEuclideanOutsideAllocation(n_decision_vars, n_objectives_allocation,
+                                                                          n_years, rbf)
+        equity_inside_reliability_and_allocation = EquityProblemEuclideanInsideReliabilityAllocation(n_decision_vars, n_objectives_reliability_and_allocation,
+                                                                          n_years, rbf)
+        equity_outside_reliability_and_allocation = EquityProblemEuclideanOutsideReliabilityAllocation(n_decision_vars, n_objectives_reliability_and_allocation,
+                                                                          n_years, rbf)
         #choose problem
-        problem_choice = priority
+        problem_choice = equity_outside_reliability_and_allocation
 
         epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
         # epsilons = [0.5]

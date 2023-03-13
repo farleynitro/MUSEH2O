@@ -4,6 +4,8 @@ import numpy as np
 import utils
 from numba import njit
 
+import math
+
 
 def create_path(rest):
     # FIXME my dir is now retrieved repeatedly
@@ -332,67 +334,6 @@ class SusquehannaModel:
             qt = 0.0
         return qp, qt  # pumping, Turbine release
 
-    def actual_release(self, uu, level_Co, day_of_year):
-        # Check if it doesn't exceed the spillway capacity
-        Tcap = 85412  # total turbine capacity (cfs)
-        # maxSpill = 1242857.0 # total spillway combined (cfs)
-
-        # minimum discharge values at APP, Balitomore, Chester and downstream
-        qm_A = 0.0
-        qm_B = 0.0
-        qm_C = 0.0
-        qm_D = 0.0
-
-        # maximum discharge values. The max discharge can be as much as the
-        # demand in that area
-        qM_A = self.w_atomic[day_of_year]
-        qM_B = self.w_baltimore[day_of_year]
-        qM_C = self.w_chester[day_of_year]
-        qM_D = Tcap
-
-        # reservoir release constraints
-        if level_Co <= self.min_level_app:
-            qM_A = 0.0
-        else:
-            qM_A = self.w_atomic[day_of_year]
-
-        if level_Co <= self.min_level_baltimore:
-            qM_B = 0.0
-        else:
-            qM_B = self.w_baltimore[day_of_year]
-        if level_Co <= self.min_level_chester:
-            qM_C = 0.0
-        else:
-            qM_C = self.w_chester[day_of_year]
-
-        if level_Co > 110.2:  # spillways activated
-            qM_D = (
-                utils.interpolate_linear(self.spillways[0], self.spillways[1], level_Co)
-                + Tcap
-            )  # Turbine capacity + spillways
-            qm_D = (
-                utils.interpolate_linear(self.spillways[0], self.spillways[1], level_Co)
-                + Tcap
-            )  # change to spillways[2]
-
-        # different from flood model
-        if level_Co < 105.5:
-            qM_D = 0.0
-        elif level_Co < 103.5:
-            qM_A = 0.0
-        elif level_Co < 100.5:
-            qM_C = 0.0
-        elif level_Co < 91.5:
-            qM_B = 0.0
-
-        # actual release
-        rr = []
-        rr.append(min(qM_A, max(qm_A, uu[0])))
-        rr.append(min(qM_B, max(qm_B, uu[1])))
-        rr.append(min(qM_C, max(qm_C, uu[2])))
-        rr.append(min(qM_D, max(qm_D, uu[3])))
-        return rr
-
     @staticmethod
     @njit
     def g_hydRevCo(
@@ -530,6 +471,80 @@ class SusquehannaModel:
             c_hour = c_hour + 1
         return g_pump, g_hyd, g_revP, g_rev
 
+
+    def actual_release(self, uu, level_Co, day_of_year):
+        '''
+
+        Function calculates the actual release based on the uu input vector.
+        Function will then check if the uu is within the feasible levels of the Conowingo
+        minimum and maximum release
+
+        :param uu: input rbf release
+        :param level_Co:
+        :param day_of_year:
+        :return:
+        '''
+        # Check if it doesn't exceed the spillway capacity
+        Tcap = 85412  # total turbine capacity (cfs)
+        # maxSpill = 1242857.0 # total spillway combined (cfs)
+
+        # minimum discharge values at APP, Balitomore, Chester and downstream
+        qm_A = 0.0
+        qm_B = 0.0
+        qm_C = 0.0
+        qm_D = 0.0
+
+        # maximum discharge values. The max discharge can be as much as the
+        # demand in that area
+        qM_A = self.w_atomic[day_of_year]
+        qM_B = self.w_baltimore[day_of_year]
+        qM_C = self.w_chester[day_of_year]
+        qM_D = Tcap
+
+        # reservoir release constraints
+        if level_Co <= self.min_level_app:
+            qM_A = 0.0
+        else:
+            qM_A = self.w_atomic[day_of_year]
+
+        if level_Co <= self.min_level_baltimore:
+            qM_B = 0.0
+        else:
+            qM_B = self.w_baltimore[day_of_year]
+        if level_Co <= self.min_level_chester:
+            qM_C = 0.0
+        else:
+            qM_C = self.w_chester[day_of_year]
+
+        if level_Co > 110.2:  # spillways activated
+            qM_D = (
+                utils.interpolate_linear(self.spillways[0], self.spillways[1], level_Co)
+                + Tcap
+            )  # Turbine capacity + spillways
+            qm_D = (
+                utils.interpolate_linear(self.spillways[0], self.spillways[1], level_Co)
+                + Tcap
+            )  # change to spillways[2]
+
+        # different from flood model
+        if level_Co < 105.5:
+            qM_D = 0.0
+        elif level_Co < 103.5:
+            qM_A = 0.0
+        elif level_Co < 100.5:
+            qM_C = 0.0
+        elif level_Co < 91.5:
+            qM_B = 0.0
+
+        # actual release
+        rr = []
+        rr.append(min(qM_A, max(qm_A, uu[0])))
+        rr.append(min(qM_B, max(qm_B, uu[1])))
+        rr.append(min(qM_C, max(qm_C, uu[2])))
+        rr.append(min(qM_D, max(qm_D, uu[3])))
+        # print('the release vector {}. with {}. output releases'.format(rr , len(rr)))
+        return rr
+
     def res_transition_h(
         self,
         s0,
@@ -544,6 +559,25 @@ class SusquehannaModel:
         day_of_week,
         hour0,
     ):
+
+        '''
+        Function returns key system parameters that specify the storage level, the actual release, and the amount
+        of hydropower generated.
+
+        :param s0:
+        :param uu:
+        :param n_sim:
+        :param n_lat:
+        :param ev:
+        :param s0_mr:
+        :param n_sim_mr:
+        :param ev_mr:
+        :param day_of_year:
+        :param day_of_week:
+        :param hour0:
+        :return:
+        '''
+
         HH = self.hours_between_decisions  # 4 hour horizon
         sim_step = 3600  # s/hour
         leak = 800  # cfs
@@ -585,6 +619,8 @@ class SusquehannaModel:
             release_B[i] = rr[1]
             release_C[i] = rr[2]
             release_D[i] = rr[3]
+
+            # print('first, i is {}. the release vector {}. {}. {}. {}. with {}. output releases'.format(i, release_A, release_B, release_C, release_D, len(rr)))
 
             # Q: Why is this being added?
             # FIXME: actual release as numpy array then simple sum over slice
@@ -707,6 +743,41 @@ class SusquehannaModel:
         G = utils.computeMean(g)
         return G
 
+    @staticmethod
+    def array_results(x_input):
+        arrays = []
+        for i in x_input:
+            new_array = [i]
+            arrays.append(new_array)
+        # print("printing the arrays", arrays)
+        # print("this is x_input", x_input)
+        return arrays
+
+    @staticmethod
+    def euclidean_distance_singular(x1, x2):
+        if len(x1) != len(x2):
+            raise ValueError("Both points must be of same length")
+
+        squared_distance = 0
+        for i in range(len(x1)):
+            squared_distance += (x1[i] - x2[i]) ** 2
+        distance = math.sqrt(squared_distance)
+
+        return distance
+
+    def euclidean_distance_multiple(x_input):
+        total_distance = 0
+        x_array = SusquehannaModel.array_results(x_input)
+        for i in range(len(x_array)):
+            for j in range(len(x_array)):
+                if i != j:
+                    # print("x_array[i]", x_array[i])
+                    total_distance += SusquehannaModel.euclidean_distance_singular(x_array[i], x_array[j])
+                # print("total_distance", total_distance)
+                else:
+                    pass
+        return total_distance
+
     def simulate(
         self,
         input_variable_list_var,
@@ -824,7 +895,7 @@ class SusquehannaModel:
                 daily_release_b[j] = ss_rr_hp[3]
                 daily_release_c[j] = ss_rr_hp[4]
                 daily_release_d[j] = ss_rr_hp[5]
-
+                # print("daily releases", daily_release_a[j], j)
                 # Hydropower revenue production
                 hydropowerRevenue_Co.append(
                     ss_rr_hp[6]
@@ -875,6 +946,34 @@ class SusquehannaModel:
         j_env = self.g_shortage_index(release_d, self.min_flow)
         j_rec = self.g_storagereliability(storage_co, self.h_ref_rec)
 
-        # need to change to different objectives
+        j_atom_release = utils.computeMean(release_a)
+        j_balt_release = utils.computeMean(release_b)
+        j_ches_release = utils.computeMean(release_c)
+        j_env_release = utils.computeMean(release_d)
+        j_rec_release = utils.computeMean(storage_co)
 
-        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec
+        # print('\n j atom release length' , len(j_atom_release))
+        # print('\n j balt release length ', len(j_balt_release))
+        # print('\n j ches release length', len(j_ches_release))
+        # print('\n j env release length', len(j_env_release))
+        # print('\n j rec release', len(j_rec_release))
+
+        ############# choose how to define equity
+
+        #choose if equity is defined by allocation or reliability
+
+        # For reliability:
+
+        releases_per_time_step_euclidean = [j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release]
+
+        euclidean_distance_per_step_reliability = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step_euclidean)
+            # euclidean_distance_reliability.append(euclidean_distance_per_step_reliability)
+
+        # For allocation:
+
+        euclidean_distance_per_step_releases = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step_euclidean)
+
+        # print('\n length metric added', len(euclidean_distance))
+        # print('\n length metric existing', len(j_atom_release))
+
+        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release, euclidean_distance_per_step_reliability, euclidean_distance_per_step_releases
