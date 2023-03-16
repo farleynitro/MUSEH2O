@@ -164,6 +164,13 @@ class SusquehannaModel:
             self.n_days_one_year,
         )
 
+        #add your data later
+
+        # self.discharge_monthly_1999 = utils.loadMatrix(
+        #     "./......txt", self.n_years, self.n_days_one_year
+        # )  # inflow to Muddy Run (cfs)
+
+
     def load_stochastic_data(self):
         # stochastic hydrology
         self.evap_CO_MC = utils.loadMatrix(
@@ -178,9 +185,6 @@ class SusquehannaModel:
         self.evap_Muddy_MC = utils.loadMatrix(
             "./dataMC/evapMR_MC.txt", self.n_years, self.n_days_one_year
         )  # evaporation losses (inches per day)
-        self.inflow_Muddy_MC = utils.loadMatrix(
-            "./dataMC/nMR_MC.txt", self.n_years, self.n_days_one_year
-        )  # inflow to Muddy Run (cfs)
 
     def set_log(self, log_objectives):
         if log_objectives:
@@ -391,6 +395,7 @@ class SusquehannaModel:
             c_hour = c_hour + 1
         Gp = np.sum(np.asarray(g_hyd))
         Gr = np.sum(np.asarray(g_rev))
+
         return Gp, Gr
 
     @staticmethod
@@ -441,7 +446,6 @@ class SusquehannaModel:
                     / (3600 * 1000)
                 )  # KWh/h
                 pP = pP + p_
-                qp_split = qp_split - qpump
 
                 if qr_split < 0.0:
                     qturb = 0.0
@@ -469,8 +473,8 @@ class SusquehannaModel:
             g_rev.append(pT / 1000 * energy_prices[c_hour][day_of_year])
             pT = 0.0
             c_hour = c_hour + 1
-        return g_pump, g_hyd, g_revP, g_rev
 
+        return g_pump, g_hyd, g_revP, g_rev
 
     def actual_release(self, uu, level_Co, day_of_year):
         '''
@@ -743,6 +747,61 @@ class SusquehannaModel:
         G = utils.computeMean(g)
         return G
 
+
+########################################## Adding reliability ######################################
+    @staticmethod
+    def g_hydro_reliability_energy(hp_generated):
+        q_target_yearly = 1.6 * pow(10,9) # kWh or MWh????
+        hours_in_year = 8760 # hour
+        q_target_hourly = q_target_yearly / hours_in_year # kWh/hour
+
+        hp_reliability = hp_generated/q_target_hourly
+
+        return hp_reliability
+
+    # def g_hydro_reliability_discharge(
+    #     self,
+    #     hp_generated):
+    #
+    #     hp = SusquehannaModel.g_hydRevCo(np.asarray(release_D),
+    #                                     level_Co,
+    #                                     day_of_year,
+    #                                     hour0,
+    #                                     self.GG,
+    #                                     self.gammaH20,
+    #                                     self.tailwater,
+    #                                     self.turbines,
+    #                                     self.energy_prices,)
+    #
+    #     q_target_yearly_energy = 1600 * pow(10,-3)  # MWh
+    #     hours_in_year = 8760  # hours
+    #     q_target_hourly = q_target_yearly / hours_in_year  # MWh/hours
+    #
+    #     gen_hydropower = hp[0] # kWh/h
+    #
+    #     hp_reliability = gen_hydropower / q_target_hourly
+    #
+    #     return hp_reliability
+
+    @staticmethod
+    def gini_coefficient(x_input):
+        # x_array = PriorityGiniProblem.array_results(x_input)
+        numerator = 0
+        for i in range(len(x_input)):
+            for j in range(len(x_input)):
+                if i != j:
+                    numerator += abs(x_input[i] - x_input[j])
+                else:
+                    pass
+
+        denominator = 2 * pow(len(x_input), 2) * np.average(x_input)  # (sum(x_input)/len(x_input))
+        # print("denominator", denominator)
+        # print("numerator", numerator)
+
+        gini_coeff = numerator / denominator
+        # print("da ginz", gini_coeff)
+        return gini_coeff
+
     @staticmethod
     def array_results(x_input):
         arrays = []
@@ -895,7 +954,7 @@ class SusquehannaModel:
                 daily_release_b[j] = ss_rr_hp[3]
                 daily_release_c[j] = ss_rr_hp[4]
                 daily_release_d[j] = ss_rr_hp[5]
-                # print("daily releases", daily_release_a[j], j)
+
                 # Hydropower revenue production
                 hydropowerRevenue_Co.append(
                     ss_rr_hp[6]
@@ -952,28 +1011,23 @@ class SusquehannaModel:
         j_env_release = utils.computeMean(release_d)
         j_rec_release = utils.computeMean(storage_co)
 
-        # print('\n j atom release length' , len(j_atom_release))
-        # print('\n j balt release length ', len(j_balt_release))
-        # print('\n j ches release length', len(j_ches_release))
-        # print('\n j env release length', len(j_env_release))
-        # print('\n j rec release', len(j_rec_release))
-
-        ############# choose how to define equity
-
-        #choose if equity is defined by allocation or reliability
+        # Computing reliability of hydropower
+        hydropower_production_Co_mean = utils.computeMean(hydropowerProduction_Co)
+        hydro_reliability_per_time_step = SusquehannaModel.g_hydro_reliability_energy(hydropower_production_Co_mean)
+        # print("hydropower_mean", hydropower_production_Co_mean)
+        # print("hydro_reliability", hydro_reliability_per_time_step)
+        # print(hydro_reliability_per_time_step)
+        # reliability.append(reliability_per_time_step)
 
         # For reliability:
+        reliability_per_time_step = [j_atom, j_balt, j_ches, j_env, j_rec, hydro_reliability_per_time_step]
 
-        releases_per_time_step_euclidean = [j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release]
-
-        euclidean_distance_per_step_reliability = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step_euclidean)
-            # euclidean_distance_reliability.append(euclidean_distance_per_step_reliability)
+        reliability_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_multiple(reliability_per_time_step)
+        reliability_gini_distance_per_step = SusquehannaModel.gini_coefficient(reliability_per_time_step)
 
         # For allocation:
+        releases_per_time_step = [j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release]
+        releases_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step)
+        releases_gini_distance_per_step = SusquehannaModel.gini_coefficient(releases_per_time_step)
 
-        euclidean_distance_per_step_releases = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step_euclidean)
-
-        # print('\n length metric added', len(euclidean_distance))
-        # print('\n length metric existing', len(j_atom_release))
-
-        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release, euclidean_distance_per_step_reliability, euclidean_distance_per_step_releases
+        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release, reliability_euclidean_distance_per_step, releases_euclidean_distance_per_step, reliability_gini_distance_per_step, releases_gini_distance_per_step, hydro_reliability_per_time_step
