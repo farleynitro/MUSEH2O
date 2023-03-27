@@ -1,10 +1,8 @@
-from susquehanna_model import SusquehannaModel
-from platypus import NSGAII, Problem, Real
-from scipy.spatial.distance import pdist
-import math
-from math import dist
 import numpy as np
 
+from susquehanna_model import SusquehannaModel
+from platypus import Problem
+import pandas as pd
 
 ########################################## INSIDE OBJECTIVE FORMULATIONS #################################################################
 
@@ -27,6 +25,9 @@ class OriginalProblem(Problem):
         super(OriginalProblem, self).__init__(n_decision_vars,
                                               n_objectives)
 
+        # initialize empty dataframe to store results
+        self.df = pd.DataFrame(columns=['euclidean distance', 'gini distance', 'hydro reliability'])
+
         #initialize rbf
         self.types[:] = rbf.platypus_types
 
@@ -44,16 +45,42 @@ class OriginalProblem(Problem):
 
     # Lower and Upper Bound for problem.types
 
+    # def store_results(output_dir, objective_formulation):
+    #     path_name = f"{output_dir}/{objective_formulation}"
+    #     if not os.path.exists(path_name):
+    #         try:
+    #             os.makedirs(path_name)
+    #             os.chmod(path_name,
+    #                      0o777)  # set permissions to read, write, and execute for owner, group, and others
+    #
+    #         except OSError:
+    #             print("Creation of the directory failed")
+
     def evaluate(self, solution):
+
         x = solution.variables[:]
 
         self.function = self.susquehanna_river.evaluate
 
         y = self.function(x)
 
+        # storing non optimized results
+        non_optimized_solution = np.array((y[6:]))
+        non_optimized_solution_array = np.reshape(non_optimized_solution, (1,3))
+
+        # convert the NumPy array to a pandas DataFrame object
+        arr_df = pd.DataFrame(non_optimized_solution_array, columns=self.df.columns)
+
+        # concatenate the DataFrame and the array DataFrame
+        self.df = pd.concat([self.df, arr_df], axis=0)
+        self.df.to_csv("output_farley/non_optimized_objectives.csv")
+
         # set objective values for only original problem posed [0:5]
         solution.objectives[:] = y[0:6]
 
         # apply direction of optimization to each objective
         solution.objectives[:] = [solution.objectives[i] * self.directions[i] for i in range(len(self.directions))]
+
+
+
 

@@ -1,11 +1,8 @@
 import os
 import numpy as np
-
 import utils
 from numba import njit
-
-import math
-
+from scipy.spatial.distance import pdist
 
 def create_path(rest):
     # FIXME my dir is now retrieved repeatedly
@@ -64,6 +61,7 @@ class SusquehannaModel:
         self.hours_between_decisions = 4  # 4-hours decision time step
         self.decisions_per_day = int(24 / self.hours_between_decisions)
         self.n_days_one_year = 365
+        self.n_months_one_year = 12
 
         # Constraints for the reservoir
         self.min_level_chester = 99.8  # ft of water
@@ -717,18 +715,29 @@ class SusquehannaModel:
     def g_storagereliability(self, h, h_target):
         c = 0
         Nw = 0
+        tt = np.arange(h.size) % self.n_days_one_year
 
-        # FIXME this probably can be fully vectorized
-        # the modulus is not neeede dif h_target is just
-        # expanded to match the length of h
-        for i, h_i in np.ndenumerate(h):
-            tt = i[0] % self.n_days_one_year
-            if h_i < h_target[tt]:  # h[i] + 1  in flood model
-                c = c + 1
+        # why do we look per day? we could combine this statement on a yearly basis
+        c = np.sum(h < h_target[tt])
+        G = 1 - c / np.sum(h_target > 0)
+
+        # # FIXME this probably can be fully vectorized
+        # # the modulus is not neeede dif h_target is just
+        # # expanded to match the length of h
+        # # j = 0
+        # for i, h_i in np.ndenumerate(h):
+        #     print("\n the shape of h_i", h_i.size)
+        #
+        #     tt = i[0] % self.n_days_one_year
+        #     if h_i < h_target[tt]:  # h[i] + 1  in flood model
+        #         # j +=1
+        #         c = c + 1
             # if h_target[tt] > 0:
             #     Nw += 1
+        # print(j)
 
-        G = 1 - c / np.sum(h_target > 0)
+        # is this an element wise comparison?
+        # G = 1 - c / np.sum(h_target > 0)
         return G
 
     def g_shortage_index(self, q1, qTarget):
@@ -747,16 +756,73 @@ class SusquehannaModel:
         G = utils.computeMean(g)
         return G
 
+    def g_vol_rel_daily(self, q1, qTarget):
+        g = q1/ qTarget
+        G = utils.computeMean(g)
+        return G
 
-########################################## Adding reliability ######################################
+    def g_shortage_index_daily(self, q1, qTarget):
+        maxarr = qTarget - q1
+        maxarr[maxarr < 0] = 0
+        gg = maxarr / qTarget
+        g = np.mean(np.square(gg))
+        return g
+
     @staticmethod
-    def g_hydro_reliability_energy(hp_generated):
-        q_target_yearly = 1.6 * pow(10,9) # kWh or MWh????
-        hours_in_year = 8760 # hour
-        q_target_hourly = q_target_yearly / hours_in_year # kWh/hour
+    def g_storagereliability_monthly(j_rec_yearly_average):
+        n_months = 12
+        G = np.repeat(j_rec_yearly_average, n_months)
+        return G
 
-        hp_reliability = hp_generated/q_target_hourly
+    # def g_storagereliability_monthly_assumption_two(self, h, h_target):
+    #     c = 0
+    #     Nw = 0
+    #
+    #     # Define an array of the number of days in each month
+    #     days_in_month = np.array([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+    #     # sum_days_in_month = np.sum(days_in_month)
+    #     # j = 1
+    #     # Initialize G as an array of length 12
+    #     G = np.zeros(12)
+    #
+    #     # add arbitrary weight
+    #
+    #     weight = 1
+    #     # Loop over each month
+    #     for i in range(12):
+    #         # Calculate the start and end indices for the current month
+    #         start_index = np.sum(days_in_month[:i])
+    #         end_index = np.sum(days_in_month[:i + 1])
+    #
+    #         # Calculate c for the current month
+    #         c = np.sum(h[start_index:end_index] < h_target[start_index:end_index])
+    #         if (np.sum(h_target[start_index:end_index] > 0)) == 0:
+    #             G[i] = 1
+    #         else:
+    #             # Calculate G for the current month
+    #             G[i] = weight * (1 - c / (np.sum(h_target[start_index:end_index] > 0) * days_in_month[i]))
+    #     return G
 
+    @staticmethod
+    def j_hydro_reliability_energy(hp_generated, time_step):
+        hp_reliability = 0
+        hours_in_year = 8760  # hours
+        hours_in_day = 24  # hours
+        power_MR = 1070 # MW
+        power_Co = 572 # MW
+        efficieny_dams = 0.9 # average efficiency of hydrodams
+
+        # Interested only in hydroproduction of the Conowingo dam
+        q_target_yearly = 1.6 * pow(10, 9) * (power_Co/(power_MR + power_Co)) # kWh / year
+
+        if time_step == 'daily':
+            q_target_daily = (q_target_yearly * hours_in_day) / hours_in_year # kWh/day
+            q_target_per_day_repeated = np.repeat(q_target_daily,len(hp_generated))
+            hp_reliability = hp_generated / q_target_per_day_repeated
+
+        elif time_step == 'yearly':
+            q_target_daily = (q_target_yearly * hours_in_day) / hours_in_year  # kWh/day
+            hp_reliability = hp_generated / q_target_daily
         return hp_reliability
 
     # def g_hydro_reliability_discharge(
@@ -783,24 +849,25 @@ class SusquehannaModel:
     #
     #     return hp_reliability
 
-    @staticmethod
-    def gini_coefficient(x_input):
-        # x_array = PriorityGiniProblem.array_results(x_input)
-        numerator = 0
-        for i in range(len(x_input)):
-            for j in range(len(x_input)):
-                if i != j:
-                    numerator += abs(x_input[i] - x_input[j])
-                else:
-                    pass
-
-        denominator = 2 * pow(len(x_input), 2) * np.average(x_input)  # (sum(x_input)/len(x_input))
-        # print("denominator", denominator)
-        # print("numerator", numerator)
-
-        gini_coeff = numerator / denominator
-        # print("da ginz", gini_coeff)
-        return gini_coeff
+    # @staticmethod
+    # def gini_coefficient(x_input):
+    #     # x_array = PriorityGiniProblem.array_results(x_input)
+    #     numerator = 0
+    #     for i in range(len(x_input)):
+    #         for j in range(len(x_input)):
+    #             if i != j:
+    #                 # divide by 2 to remove double counting
+    #                 numerator += abs(x_input[i] - x_input[j])/2
+    #             else:
+    #                 pass
+    #
+    #     denominator = 2 * pow(len(x_input), 2) * np.average(x_input)  # (sum(x_input)/len(x_input))
+    #     # print("denominator", denominator)
+    #     # print("numerator for loop", numerator)
+    #
+    #     gini_coeff = numerator / denominator
+    #     # print("da ginz", gini_coeff)
+    #     return gini_coeff
 
     @staticmethod
     def array_results(x_input):
@@ -808,34 +875,107 @@ class SusquehannaModel:
         for i in x_input:
             new_array = [i]
             arrays.append(new_array)
-        # print("printing the arrays", arrays)
-        # print("this is x_input", x_input)
         return arrays
 
     @staticmethod
-    def euclidean_distance_singular(x1, x2):
-        if len(x1) != len(x2):
-            raise ValueError("Both points must be of same length")
+    def monthly_average(x_input):
+        '''
+        Calculate monthly average out of an array that is ordered by the number of days in one year.
 
-        squared_distance = 0
-        for i in range(len(x1)):
-            squared_distance += (x1[i] - x2[i]) ** 2
-        distance = math.sqrt(squared_distance)
+        :param x_input: array or list
+        :return: a list of length 12 corresponding to the month number. Each month has as an entry equal to
+        its monthly average
+        '''
 
-        return distance
+        monthly_values = {}
+        monthly_average = []
+        for i, value in enumerate(x_input):
+            month = (i + 1) % 12 or 12  # calculate the month based on the index
+            if month not in monthly_values:
+                monthly_values[month] = []
+            monthly_values[month].append(value)
 
-    def euclidean_distance_multiple(x_input):
-        total_distance = 0
-        x_array = SusquehannaModel.array_results(x_input)
-        for i in range(len(x_array)):
-            for j in range(len(x_array)):
-                if i != j:
-                    # print("x_array[i]", x_array[i])
-                    total_distance += SusquehannaModel.euclidean_distance_singular(x_array[i], x_array[j])
-                # print("total_distance", total_distance)
-                else:
-                    pass
+        for month, value in monthly_values.items():
+            monthly_average.append(sum(value)/len(value))
+        return monthly_average
+
+
+    @staticmethod
+    def daily_hydropower_average(x_input):
+        '''
+        this function will take in an array of length 2190, equivalent to the number of days in a year, multiplied by six (the amount of
+        decisions being taken per day). Subsequently, it divivides this by six, to calculate the daily average of hydropower production.
+
+        Optionally, one can call the monthly average method to calculate the monthly average of this array of length 365 days, and convert
+        it to an array of 12 months.
+
+        :param x_input: hydroProduction_Co
+        :return j_yearly_production_array: the daily hydropower production.
+        '''
+        # calculate the daily averages
+        j_yearly_production_array = np.average(np.array(x_input).reshape(-1, 6), axis=1)
+
+        # Method will be very time expensive, I vectorized this to the following method
+        # daily_average = []
+        # daily_total = 0
+        # n_samples = 0
+        #
+        # for i, value in enumerate(x_input):
+        #     daily_total += value
+        #     n_samples += 1
+        #
+        #     # 6 decisions taken per day, every 4 hours
+        #     if (i + 1) % 6 == 0:
+        #         daily_average.append(daily_total / n_samples)
+        #         daily_total = 0
+        #         n_samples = 0
+
+        return j_yearly_production_array
+
+    # @staticmethod
+    # def euclidean_distance_singular(x1, x2):
+    #     if len(x1) != len(x2):
+    #         raise ValueError("Both points must be of same length")
+    #
+    #     squared_distance = 0
+    #     for i in range(len(x1)):
+    #         squared_distance += (x1[i] - x2[i]) ** 2
+    #     distance = math.sqrt(squared_distance)
+    #
+    #     return distance
+
+    # def euclidean_distance_multiple(x_input):
+    #     total_distance = 0
+    #     x_array = SusquehannaModel.array_results(x_input)
+    #     for i in range(len(x_array)):
+    #         for j in range(len(x_array)):
+    #             if i != j:
+    #                 # print("x_array[i]", x_array[i])
+    #                 total_distance += SusquehannaModel.euclidean_distance_singular(x_array[i], x_array[j])
+    #             # print("total_distance", total_distance)
+    #             else:
+    #                 pass
+    #     total_distance_remove_duplicates = total_distance/2
+    #     return total_distance_remove_duplicates
+    @staticmethod
+    def gini_coefficient_scipy(x_input):
+        two_dim_array = SusquehannaModel.array_results(x_input)
+        numerator_total_distance = pdist(two_dim_array, lambda u, v: np.abs((u-v)).sum())
+
+        # denominator is defined as 2 * length^2 * average array value
+        denominator = 2 * pow(len(x_input), 2) * np.average(x_input)  # (sum(x_input)/len(x_input))
+        gini_coeff = numerator_total_distance/denominator
+        return gini_coeff
+
+    @staticmethod
+    def euclidean_distance_scipy(x_input):
+        two_dim_array = SusquehannaModel.array_results(x_input)
+        total_distance = pdist(two_dim_array, 'euclidean').sum()
         return total_distance
+    @staticmethod
+    def reliability_std(gini_coefficient_array):
+        array_dealer = np.std(gini_coefficient_array)
+        return array_dealer
 
     def simulate(
         self,
@@ -847,8 +987,12 @@ class SusquehannaModel:
         evap_Muddy_MC_e_mr,
         opt_met,
     ):
+
         # Initializing daily variables
         # storages and levels
+
+        reliability_gini = []
+        reliability_eucli = []
 
         shape = (self.time_horizon_H + 1,)
         storage_co = np.empty(shape)
@@ -885,10 +1029,18 @@ class SusquehannaModel:
         decision_steps_per_year = self.n_days_in_year * self.decisions_per_day
         year = 0
 
+        j_atom_yearly_array = []
+        j_balt_yearly_array = []
+        j_ches_yearly_array = []
+        j_env_yearly_array = []
+        # j_rec_yearly_array = []
+        storage_co_yearly = []
+
         # run simulation
         for t in range(self.time_horizon_H):
             day_of_week = (self.day0 + t) % 7
             day_of_year = t % self.n_days_in_year
+
             if day_of_year % self.n_days_in_year == 0 and t != 0:
                 year = year + 1
 
@@ -912,6 +1064,9 @@ class SusquehannaModel:
             daily_storage_mr[0] = storage_mr[t]
 
             # sub-daily cycle
+
+            counter = 0 # counter for hydro
+
             for j in range(self.decisions_per_day):
                 decision_step = t * self.decisions_per_day + j
 
@@ -968,6 +1123,7 @@ class SusquehannaModel:
                 hydropowerProduction_Co.append(
                     ss_rr_hp[9]
                 )  # 6-hours energy production (kWh/6h)
+                # print("the length" , len(hydropowerProduction_Co))
                 hydroPump_MR.append(
                     ss_rr_hp[10]
                 )  # 6-hours energy production (kWh/6h) at MR
@@ -975,15 +1131,53 @@ class SusquehannaModel:
                     ss_rr_hp[11]
                 )  # 6-hours energy production (kWh/6h) at MR
 
-            # daily values
+            if (len(hydropowerProduction_Co) == (self.decisions_per_day * self.n_days_in_year)):
+                j_hydro_production_daily_one_year = SusquehannaModel.daily_hydropower_average(hydropowerProduction_Co)
+
+
+            # daily values, need to convert to monthly values
             level_co[day_of_year + 1] = daily_level_co[self.decisions_per_day]
             storage_co[t + 1] = daily_storage_co[self.decisions_per_day]
+
+            storage_co_yearly.append(storage_co[t+1])
+
             release_a[day_of_year] = np.mean(daily_release_a)
             release_b[day_of_year] = np.mean(daily_release_b)
             release_c[day_of_year] = np.mean(daily_release_c)
             release_d[day_of_year] = np.mean(daily_release_d)
             level_mr[t + 1] = daily_level_mr[self.decisions_per_day]
             storage_mr[t + 1] = daily_storage_mr[self.decisions_per_day]
+
+            # daily release values, still needs to be dealt with on an aggregate scale
+            # j_atom_release = release_a[day_of_year]
+            # j_balt_release = release_b[day_of_year]
+            # j_ches_release = release_c[day_of_year]
+            # j_env_release = release_d[day_of_year]
+            # j_rec_release = storage_co[day_of_year]
+            # print(storage_co[day_of_year])
+
+            # # daily reliability values
+            j_atom_daily = self.g_vol_rel_daily(release_a[day_of_year], self.w_atomic)
+            j_balt_daily = self.g_vol_rel_daily(release_b[day_of_year], self.w_baltimore)
+            j_ches_daily = self.g_vol_rel_daily(release_c[day_of_year], self.w_chester)
+            j_env_daily = self.g_shortage_index_daily(release_d[day_of_year], self.min_flow)
+
+            # this is not possible since reliability is a boolean statement
+            # j_rec_daily = self.g_storagereliability_daily(storage_co[t + 1], self.h_ref_rec, day_of_year)
+
+            j_atom_yearly_array.append(j_atom_daily)
+            j_balt_yearly_array.append(j_balt_daily)
+            j_ches_yearly_array.append(j_ches_daily)
+            j_env_yearly_array.append(j_env_daily)
+            # j_rec_yearly_array.append(j_rec_daily)
+
+
+        # Calculate monthly averages
+        j_atom_monthly = SusquehannaModel.monthly_average(j_atom_yearly_array)
+        j_balt_monthly = SusquehannaModel.monthly_average(j_balt_yearly_array)
+        j_ches_monthly = SusquehannaModel.monthly_average(j_ches_yearly_array)
+        j_env_monthly = SusquehannaModel.monthly_average(j_env_yearly_array)
+        # j_rec_monthly = SusquehannaModel.monthly_average(j_rec_yearly_array) # not possible
 
         # log level / release
         if self.log_objectives:
@@ -995,39 +1189,68 @@ class SusquehannaModel:
             self.renv.append(release_d)
 
         # compute objectives
-        # level_co.pop(0)
         j_hyd = (
             sum(hydropowerRevenue_Co) / self.n_years / pow(10, 6)
         )  # GWh/year (M$/year)
         j_atom = self.g_vol_rel(release_a, self.w_atomic)
         j_balt = self.g_vol_rel(release_b, self.w_baltimore)
         j_ches = self.g_vol_rel(release_c, self.w_chester)
-        j_env = self.g_shortage_index(release_d, self.min_flow)
+        j_env = self.g_shortage_index_daily(release_d, self.min_flow)
         j_rec = self.g_storagereliability(storage_co, self.h_ref_rec)
 
-        j_atom_release = utils.computeMean(release_a)
-        j_balt_release = utils.computeMean(release_b)
-        j_ches_release = utils.computeMean(release_c)
-        j_env_release = utils.computeMean(release_d)
-        j_rec_release = utils.computeMean(storage_co)
+        # AND YOUUUUU ARE TROUBLE TROUBLE TROUBLEEEEE
+        j_rec_monthly = SusquehannaModel.g_storagereliability_monthly(j_rec)
+        # j_rec_monthly_assumption_two = self.g_storagereliability_monthly_assumption_two(storage_co_yearly, self.h_ref_rec)
 
-        # Computing reliability of hydropower
-        hydropower_production_Co_mean = utils.computeMean(hydropowerProduction_Co)
-        hydro_reliability_per_time_step = SusquehannaModel.g_hydro_reliability_energy(hydropower_production_Co_mean)
-        # print("hydropower_mean", hydropower_production_Co_mean)
-        # print("hydro_reliability", hydro_reliability_per_time_step)
-        # print(hydro_reliability_per_time_step)
-        # reliability.append(reliability_per_time_step)
+        ## Computing reliability of hydropower on aggregated yearly basis
+        hydropower_production_Co_mean = utils.computeMean(j_hydro_production_daily_one_year)
+        j_hydro_reliability_yearly_average = SusquehannaModel.j_hydro_reliability_energy(hydropower_production_Co_mean, 'yearly')
+
+        ## Going through some steps to get the reliability of Hydropower
+
+        # First calculate hydro reliabity on a daily basis
+        j_hydro_reliability_yearly = SusquehannaModel.j_hydro_reliability_energy(j_hydro_production_daily_one_year,
+                                                                                 'daily')
+
+        # Now we can calculate the monthly average of hydropower reliability
+        j_hydro_monthly = SusquehannaModel.monthly_average(j_hydro_reliability_yearly)
+
+        # yes check if values are around the same range
+        j_hydro_monthly_average_one_year = np.average(np.array(j_hydro_monthly))
+        # print("\n j_hydro monthly {}, I expect the same as j_hydro {}".format(j_hydro_monthly_average_one_year,
+        #                                                                     j_hydro_reliability_yearly_average))
+
+        # For reliability calculation of distances Euclidean and Gini:
+        n_months = 12 # total months
+
+        for i in range(n_months):
+            reliability_monthly = [j_atom_monthly[i], j_balt_monthly[i], j_ches_monthly[i], j_env_monthly[i], j_rec_monthly[i], j_hydro_monthly[i]]
+            reliability_euclidean_distance_monthly = SusquehannaModel.euclidean_distance_scipy(reliability_monthly)
+            reliability_gini_distance_monthly = SusquehannaModel.gini_coefficient_scipy(reliability_monthly)
+
+            # Save everything to an empty list made at the beginning:
+            reliability_gini.append(reliability_gini_distance_monthly)
+            reliability_eucli.append(reliability_euclidean_distance_monthly)
+
+        # calculate standard deviation between objectives
+        eucli_std = SusquehannaModel.reliability_std(reliability_eucli)
+        gini_std = SusquehannaModel.reliability_std(reliability_gini)
+
+        print(j_hydro_reliability_yearly_average)
 
         # For reliability:
-        reliability_per_time_step = [j_atom, j_balt, j_ches, j_env, j_rec, hydro_reliability_per_time_step]
+        # reliability_per_time_step = [j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_production]
+        # reliability_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_scipy(reliability_per_time_step)
+        # reliability_gini_distance_per_step = SusquehannaModel.gini_coefficient_scipy(reliability_per_time_step)
 
-        reliability_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_multiple(reliability_per_time_step)
-        reliability_gini_distance_per_step = SusquehannaModel.gini_coefficient(reliability_per_time_step)
+        # # For allocation:
+        # releases_per_time_step = [j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release]
+        # releases_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step)
+        # releases_gini_distance_per_step = SusquehannaModel.gini_coefficient(releases_per_time_step)
 
-        # For allocation:
-        releases_per_time_step = [j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release]
-        releases_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step)
-        releases_gini_distance_per_step = SusquehannaModel.gini_coefficient(releases_per_time_step)
+        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec,  gini_std,  eucli_std,  j_hydro_reliability_yearly_average
 
-        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release, reliability_euclidean_distance_per_step, releases_euclidean_distance_per_step, reliability_gini_distance_per_step, releases_gini_distance_per_step, hydro_reliability_per_time_step
+        # old objectives, feel free to attach them whenever one wants
+        # j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release, releases_euclidean_distance_per_step, releases_gini_distance_per_step,
+
+
