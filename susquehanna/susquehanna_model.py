@@ -39,7 +39,7 @@ class SusquehannaModel:
         # FIXME: logging should not be handled through a boolean
         # FIXME: seems log is mislabeled, just a trace during runtime
         # but by simply setting a logger in the main run
-        self.log_level_release = False
+        self.log_level_release = True
 
         # variables from the header file
         self.input_min = []
@@ -54,6 +54,14 @@ class SusquehannaModel:
         self.rbalt = []
         self.rches = []
         self.renv = []
+        self.gini_yearly_mean_coeff = []
+        self.eucli_yearly_mean_coeff = []
+        self.gini_monthly_std_coeff = []
+        self.eucli_monthly_std_coeff = []
+        self.j_hydro_reliability_yearly_mean = []
+        self.gini_monthly = []
+        self.eucli_monthly = []
+
 
         # historical record #1000 simulation horizon (1996,2001)
         self.n_years = n_years
@@ -198,6 +206,13 @@ class SusquehannaModel:
             self.rbalt,
             self.rches,
             self.renv,
+            self.gini_yearly_mean_coeff,
+            self.eucli_yearly_mean_coeff,
+            self.gini_monthly_std_coeff,
+            self.eucli_monthly_std_coeff,
+            self.j_hydro_reliability_yearly_mean,
+            self.gini_monthly,
+            self.eucli_monthly,
         )
 
     def apply_rbf_policy(self, rbf_input):
@@ -825,50 +840,6 @@ class SusquehannaModel:
             hp_reliability = hp_generated / q_target_daily
         return hp_reliability
 
-    # def g_hydro_reliability_discharge(
-    #     self,
-    #     hp_generated):
-    #
-    #     hp = SusquehannaModel.g_hydRevCo(np.asarray(release_D),
-    #                                     level_Co,
-    #                                     day_of_year,
-    #                                     hour0,
-    #                                     self.GG,
-    #                                     self.gammaH20,
-    #                                     self.tailwater,
-    #                                     self.turbines,
-    #                                     self.energy_prices,)
-    #
-    #     q_target_yearly_energy = 1600 * pow(10,-3)  # MWh
-    #     hours_in_year = 8760  # hours
-    #     q_target_hourly = q_target_yearly / hours_in_year  # MWh/hours
-    #
-    #     gen_hydropower = hp[0] # kWh/h
-    #
-    #     hp_reliability = gen_hydropower / q_target_hourly
-    #
-    #     return hp_reliability
-
-    # @staticmethod
-    # def gini_coefficient(x_input):
-    #     # x_array = PriorityGiniProblem.array_results(x_input)
-    #     numerator = 0
-    #     for i in range(len(x_input)):
-    #         for j in range(len(x_input)):
-    #             if i != j:
-    #                 # divide by 2 to remove double counting
-    #                 numerator += abs(x_input[i] - x_input[j])/2
-    #             else:
-    #                 pass
-    #
-    #     denominator = 2 * pow(len(x_input), 2) * np.average(x_input)  # (sum(x_input)/len(x_input))
-    #     # print("denominator", denominator)
-    #     # print("numerator for loop", numerator)
-    #
-    #     gini_coeff = numerator / denominator
-    #     # print("da ginz", gini_coeff)
-    #     return gini_coeff
-
     @staticmethod
     def array_results(x_input):
         arrays = []
@@ -932,39 +903,13 @@ class SusquehannaModel:
 
         return j_yearly_production_array
 
-    # @staticmethod
-    # def euclidean_distance_singular(x1, x2):
-    #     if len(x1) != len(x2):
-    #         raise ValueError("Both points must be of same length")
-    #
-    #     squared_distance = 0
-    #     for i in range(len(x1)):
-    #         squared_distance += (x1[i] - x2[i]) ** 2
-    #     distance = math.sqrt(squared_distance)
-    #
-    #     return distance
-
-    # def euclidean_distance_multiple(x_input):
-    #     total_distance = 0
-    #     x_array = SusquehannaModel.array_results(x_input)
-    #     for i in range(len(x_array)):
-    #         for j in range(len(x_array)):
-    #             if i != j:
-    #                 # print("x_array[i]", x_array[i])
-    #                 total_distance += SusquehannaModel.euclidean_distance_singular(x_array[i], x_array[j])
-    #             # print("total_distance", total_distance)
-    #             else:
-    #                 pass
-    #     total_distance_remove_duplicates = total_distance/2
-    #     return total_distance_remove_duplicates
     @staticmethod
     def gini_coefficient_scipy(x_input):
         two_dim_array = SusquehannaModel.array_results(x_input)
         numerator_total_distance = pdist(two_dim_array, lambda u, v: np.abs((u-v)).sum())
-
         # denominator is defined as 2 * length^2 * average array value
         denominator = 2 * pow(len(x_input), 2) * np.average(x_input)  # (sum(x_input)/len(x_input))
-        gini_coeff = numerator_total_distance/denominator
+        gini_coeff = (numerator_total_distance/denominator).sum()
         return gini_coeff
 
     @staticmethod
@@ -972,9 +917,19 @@ class SusquehannaModel:
         two_dim_array = SusquehannaModel.array_results(x_input)
         total_distance = pdist(two_dim_array, 'euclidean').sum()
         return total_distance
+
+    # def sum_inequality_coefficient(objectives_input_array, inequality_metric):
+    #     inequality_coefficient_array = np.empty()
+    #     if inequality_metric == 'e':
+    #         inequality_coefficient_array = SusquehannaModel.euclidean_distance_scipy(objectives_input_array)
+    #     elif inequality_metric == 'g':
+    #         inequality_coefficient_array = SusquehannaModel.gini_coefficient_scipy(objectives_input_array)
+    #     sum_inequality_coefficient_array = np.sum(inequality_coefficient_array)
+    #     return sum_inequality_coefficient_array
+
     @staticmethod
-    def reliability_std(gini_coefficient_array):
-        array_dealer = np.std(gini_coefficient_array)
+    def reliability_std(inequality_coefficient_array):
+        array_dealer = np.std(inequality_coefficient_array)
         return array_dealer
 
     def simulate(
@@ -1148,13 +1103,6 @@ class SusquehannaModel:
             level_mr[t + 1] = daily_level_mr[self.decisions_per_day]
             storage_mr[t + 1] = daily_storage_mr[self.decisions_per_day]
 
-            # daily release values, still needs to be dealt with on an aggregate scale
-            # j_atom_release = release_a[day_of_year]
-            # j_balt_release = release_b[day_of_year]
-            # j_ches_release = release_c[day_of_year]
-            # j_env_release = release_d[day_of_year]
-            # j_rec_release = storage_co[day_of_year]
-            # print(storage_co[day_of_year])
 
             # # daily reliability values
             j_atom_daily = self.g_vol_rel_daily(release_a[day_of_year], self.w_atomic)
@@ -1162,9 +1110,7 @@ class SusquehannaModel:
             j_ches_daily = self.g_vol_rel_daily(release_c[day_of_year], self.w_chester)
             j_env_daily = self.g_shortage_index_daily(release_d[day_of_year], self.min_flow)
 
-            # this is not possible since reliability is a boolean statement
-            # j_rec_daily = self.g_storagereliability_daily(storage_co[t + 1], self.h_ref_rec, day_of_year)
-
+            # append daily results to empty yearly array
             j_atom_yearly_array.append(j_atom_daily)
             j_balt_yearly_array.append(j_balt_daily)
             j_ches_yearly_array.append(j_ches_daily)
@@ -1172,21 +1118,13 @@ class SusquehannaModel:
             # j_rec_yearly_array.append(j_rec_daily)
 
 
-        # Calculate monthly averages
+        # Calculate monthly averages from the yearly array
         j_atom_monthly = SusquehannaModel.monthly_average(j_atom_yearly_array)
         j_balt_monthly = SusquehannaModel.monthly_average(j_balt_yearly_array)
         j_ches_monthly = SusquehannaModel.monthly_average(j_ches_yearly_array)
         j_env_monthly = SusquehannaModel.monthly_average(j_env_yearly_array)
-        # j_rec_monthly = SusquehannaModel.monthly_average(j_rec_yearly_array) # not possible
+        # j_rec_monthly = SusquehannaModel.monthly_average(j_rec_yearly_array) # not possible to do this because of the formulation of Giuliani et al. (2014)
 
-        # log level / release
-        if self.log_objectives:
-            self.blevel_CO.append(level_co)
-            self.blevel_MR.append(level_mr)
-            self.ratom.append(release_a)
-            self.rbalt.append(release_b)
-            self.rches.append(release_c)
-            self.renv.append(release_d)
 
         # compute objectives
         j_hyd = (
@@ -1200,13 +1138,14 @@ class SusquehannaModel:
 
         # AND YOUUUUU ARE TROUBLE TROUBLE TROUBLEEEEE
         j_rec_monthly = SusquehannaModel.g_storagereliability_monthly(j_rec)
-        # j_rec_monthly_assumption_two = self.g_storagereliability_monthly_assumption_two(storage_co_yearly, self.h_ref_rec)
 
         ## Computing reliability of hydropower on aggregated yearly basis
         hydropower_production_Co_mean = utils.computeMean(j_hydro_production_daily_one_year)
         j_hydro_reliability_yearly_average = SusquehannaModel.j_hydro_reliability_energy(hydropower_production_Co_mean, 'yearly')
 
-        ## Going through some steps to get the reliability of Hydropower
+
+
+        ## Going through some steps to get the reliability of Hydropower on a monthly basis, which is different to the situation above
 
         # First calculate hydro reliabity on a daily basis
         j_hydro_reliability_yearly = SusquehannaModel.j_hydro_reliability_energy(j_hydro_production_daily_one_year,
@@ -1214,11 +1153,6 @@ class SusquehannaModel:
 
         # Now we can calculate the monthly average of hydropower reliability
         j_hydro_monthly = SusquehannaModel.monthly_average(j_hydro_reliability_yearly)
-
-        # yes check if values are around the same range
-        j_hydro_monthly_average_one_year = np.average(np.array(j_hydro_monthly))
-        # print("\n j_hydro monthly {}, I expect the same as j_hydro {}".format(j_hydro_monthly_average_one_year,
-        #                                                                     j_hydro_reliability_yearly_average))
 
         # For reliability calculation of distances Euclidean and Gini:
         n_months = 12 # total months
@@ -1236,21 +1170,28 @@ class SusquehannaModel:
         eucli_std = SusquehannaModel.reliability_std(reliability_eucli)
         gini_std = SusquehannaModel.reliability_std(reliability_gini)
 
-        print(j_hydro_reliability_yearly_average)
+        # reliability yearly
 
-        # For reliability:
-        # reliability_per_time_step = [j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_production]
-        # reliability_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_scipy(reliability_per_time_step)
-        # reliability_gini_distance_per_step = SusquehannaModel.gini_coefficient_scipy(reliability_per_time_step)
+        reliability_yearly = [j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_reliability_yearly_average]
 
-        # # For allocation:
-        # releases_per_time_step = [j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release]
-        # releases_euclidean_distance_per_step = SusquehannaModel.euclidean_distance_multiple(releases_per_time_step)
-        # releases_gini_distance_per_step = SusquehannaModel.gini_coefficient(releases_per_time_step)
+        gini_mean = SusquehannaModel.gini_coefficient_scipy(reliability_yearly)
+        eucli_mean = SusquehannaModel.euclidean_distance_scipy(reliability_yearly)
 
-        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec,  gini_std,  eucli_std,  j_hydro_reliability_yearly_average
+        # log level / release
+        if self.log_objectives:
+            self.blevel_CO.append(level_co)
+            self.blevel_MR.append(level_mr)
+            self.ratom.append(release_a)
+            self.rbalt.append(release_b)
+            self.rches.append(release_c)
+            self.renv.append(release_d)
+            self.gini_yearly_mean_coeff.append(gini_mean)
+            self.eucli_yearly_mean_coeff.append(eucli_mean)
+            self.gini_monthly_std_coeff.append(gini_std)
+            self.eucli_monthly_std_coeff.append(eucli_std)
+            self.j_hydro_reliability_yearly_mean.append(j_hydro_reliability_yearly_average)
+            self.gini_monthly.append(reliability_gini)
+            self.eucli_monthly.append(reliability_eucli)
 
-        # old objectives, feel free to attach them whenever one wants
-        # j_atom_release, j_balt_release, j_ches_release, j_env_release, j_rec_release, releases_euclidean_distance_per_step, releases_gini_distance_per_step,
-
+        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_reliability_yearly_average, gini_mean, eucli_mean, gini_std,  eucli_std
 

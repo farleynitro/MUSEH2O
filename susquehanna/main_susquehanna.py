@@ -6,35 +6,15 @@
 # ===========================================================================
 import csv
 import logging
-import numpy as np
 import os
 import pandas as pd
 import random
-
-from platypus import Problem, EpsNSGAII, Real, ProcessPoolEvaluator
-
-# from problem_formulation_euclidean import  EquityProblemEuclideanInsideReliabilityAllocation, EquityProblemEuclideanInsideReliability, EquityProblemEuclideanInsideAllocation, EquityProblemEuclideanOutsideReliabilityAllocation, EquityProblemEuclideanOutsideReliability, EquityProblemEuclideanOutsideAllocation
-# from problem_formulation_gini import EquityProblemGiniInsideReliabilityAllocation, EquityProblemGiniInsideReliability, EquityProblemGiniInsideAllocation, EquityProblemGiniOutsideReliabilityAllocation, EquityProblemGiniOutsideReliability, EquityProblemGiniOutsideAllocation
-
-from problem_formulation_euclidean import  EquityProblemEuclideanInsideReliability, EquityProblemEuclideanOutsideReliability
-from problem_formulation_gini import EquityProblemGiniInsideReliability, EquityProblemGiniOutsideReliability
-from problem_formulation_original import OriginalProblem
+from platypus import EpsNSGAII, ProcessPoolEvaluator
+    # Other evaluators seem to not yield faster results: Evaluator, PoolEvaluator, MultiprocessingEvaluator
+from problem_formulation_euclidean import  CombinedPrincipleEuclidean
+from problem_formulation_gini import CombinedPrincipleGini
+from problem_formulation_original import UtilitarianProblem
 import rbf_functions
-
-
-# OriginalProblem
-# EquityProblemEuclideanInsideReliabilityAllocation
-# EquityProblemEuclideanInsideReliability
-# EquityProblemEuclideanInsideAllocation
-# EquityProblemEuclideanOutsideReliabilityAllocation
-# EquityProblemEuclideanOutsideReliability
-# EquityProblemEuclideanOutsideAllocation
-# EquityProblemGiniInsideReliabilityAllocation
-# EquityProblemGiniInsideReliability
-# EquityProblemGiniInsideAllocation
-# EquityProblemGiniOutsideReliabilityAllocation
-# EquityProblemGiniOutsideReliability
-# EquityProblemGiniOutsideAllocation
 
 class TrackProgress:
     def __init__(self):
@@ -70,50 +50,14 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
 
     header = None
 
-    # if objective_formulation in ['EquityProblemEuclideanInsideReliabilityAllocation', 'EquityProblemEuclideanOutsideReliabilityAllocation', 'EquityProblemGiniInsideReliabilityAllocation']:
-    #     header = [
-    #         "hydropower reliability",
-    #         "atomicpowerplant reliability",
-    #         "baltimore reliability",
-    #         "chester reliability",
-    #         "environment reliability",
-    #         "recreation reliability",
-    #         "allocation based equity",
-    #         "reliability based equity"
-    #     ]
-
-    if objective_formulation in ['OriginalProblem']:
-        header = [
-            "hydropower reliability",
-            "atomicpowerplant reliability",
-            "baltimore reliability",
-            "chester reliability",
-            "environment reliability",
-            "recreation reliability"
-        ]
-
-    elif objective_formulation in ['EquityProblemEuclideanInsideReliability', 'EquityProblemEuclideanOutsideReliability', 'EquityProblemGiniInsideReliability', 'EquityProblemGiniOutsideReliability']:
-        header = [
-            "hydropower reliability",
-            "atomicpowerplant reliability",
-            "baltimore reliability",
-            "chester reliability",
-            "environment reliability",
-            "recreation reliability",
-            "reliability based equity"
-        ]
-
-    # elif objective_formulation in ['EquityProblemEuclideanInsideAllocation', 'EquityProblemEuclideanOutsideAllocation', 'EquityProblemGiniInsideAllocation', 'EquityProblemGiniOutsideAllocation']:
-    #     header = [
-    #         "hydropower reliability",
-    #         "atomicpowerplant reliability",
-    #         "baltimore reliability",
-    #         "chester reliability",
-    #         "environment reliability",
-    #         "recreation reliability",
-    #         "recreation allocation",
-    #         # "reliability based equity"
-    #     ]
+    header = [
+        "hydropower reliability",
+        "atomicpowerplant reliability",
+        "baltimore reliability",
+        "chester reliability",
+        "environment reliability",
+        "recreation reliability",
+    ]
 
     with open(
             f"{output_dir}/{objective_formulation}/{seed_id}_solution.csv",
@@ -151,70 +95,54 @@ def main():
         n_outputs = 4
         n_years = 1
 
-        #objectives, based on the distance based objective we can change the number of objectives.
-        n_objectives_original = 6
-        # n_objectives_reliability_and_allocation = 8
-        n_objectives_reliability = 7
-        n_objectives_allocation = 7
+        # objectives, based on the distance based objective we can change the number of objectives.
+
+        n_objectives_utilitarian = 6
+        n_objectives_justice = 7
+
+        # rbf setup
         n_rbfs = 4
 
         rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=entry)
         n_decision_vars = len(rbf.platypus_types)
 
+        epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
+
         # choose out of the following problems
         # 7 different objective formulations in total. They are meant for test runs where we test both the distance based optimization
         # inside and outside the objective formulation. In the original problem we do not test it.
 
-        original = OriginalProblem(n_decision_vars, n_objectives_original, n_years, rbf)
+        utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian,
+                                   n_years, rbf)
 
         ############## FOR EUCLIDEAN ####################
-        euclidean_equity_inside_reliability = EquityProblemEuclideanInsideReliability(n_decision_vars, n_objectives_reliability,
+        euclidean_inside = CombinedPrincipleEuclidean(n_decision_vars, n_objectives_justice,
                                                                             n_years, rbf)
-        euclidean_equity_outside_reliability = EquityProblemEuclideanOutsideReliability(n_decision_vars, n_objectives_reliability,
-                                                                            n_years, rbf)
-        # euclidean_equity_inside_allocation = EquityProblemEuclideanInsideAllocation(n_decision_vars, n_objectives_allocation,
+        # euclidean_outside = CombinedPrincipleEuclideanPostOptimization(n_decision_vars, n_objectives_justice,
         #                                                                     n_years, rbf)
-        # euclidean_equity_outside_allocation = EquityProblemEuclideanOutsideAllocation(n_decision_vars, n_objectives_allocation,
-        #                                                                   n_years, rbf)
-        # euclidean_equity_inside_reliability_and_allocation = EquityProblemEuclideanInsideReliabilityAllocation(n_decision_vars, n_objectives_reliability_and_allocation,
-        #                                                                   n_years, rbf)
-        # euclidean_equity_outside_reliability_and_allocation = EquityProblemEuclideanOutsideReliabilityAllocation(n_decision_vars, n_objectives_reliability_and_allocation,
-        #                                                                   n_years, rbf)
 
         ################ FOR GINI ######################
 
-        gini_equity_inside_reliability = EquityProblemGiniInsideReliability(n_decision_vars, n_objectives_reliability,
+        gini_inside = CombinedPrincipleGini(n_decision_vars, n_objectives_justice,
                                                                             n_years, rbf)
-        gini_equity_outside_reliability = EquityProblemGiniOutsideReliability(n_decision_vars, n_objectives_reliability,
-                                                                            n_years, rbf)
-        # gini_equity_inside_allocation = EquityProblemGiniInsideAllocation(n_decision_vars, n_objectives_allocation,
-        #                                                                   n_years, rbf)
-        # gini_equity_outside_allocation = EquityProblemGiniOutsideAllocation(n_decision_vars, n_objectives_allocation,
-        #                                                                   n_years, rbf)
-        # gini_equity_inside_reliability_and_allocation = EquityProblemGiniInsideReliabilityAllocation(n_decision_vars, n_objectives_reliability_and_allocation,
-        #                                                                   n_years, rbf)
-        # gini_equity_outside_reliability_and_allocation = EquityProblemGiniOutsideReliabilityAllocation(n_decision_vars, n_objectives_reliability_and_allocation,
-        #                                                                   n_years, rbf)
+        # gini_outside = CombinedPrincipleGiniPostOptimization(n_decision_vars, n_objectives_justice,
+        #                                                                     n_years, rbf)
 
-        #choose problem
-        problem_choice = original
+        # choose problem
+        problem_choice = euclidean_inside
 
-        epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
-
-        # algorithm = EpsNSGAII(problem, epsilons=epsilons)
-        # algorithm.run(1000)
-
+        # run all problems
         track_progress = TrackProgress()
         with ProcessPoolEvaluator() as evaluator:
             algorithm = EpsNSGAII(problem_choice, epsilons=epsilons, evaluator=evaluator)
-            algorithm.run(10000, track_progress)
-
+            algorithm.run(250000, track_progress)
         store_results(
             algorithm, track_progress, "output_farley", f"{problem_choice.__class__.__name__}", seed
         )
 
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     main()
+
+

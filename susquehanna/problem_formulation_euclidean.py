@@ -1,11 +1,12 @@
 from susquehanna_model import SusquehannaModel
-from platypus import NSGAII, Problem, Real
+from platypus import Problem
 from scipy.spatial.distance import pdist
+import pandas as pd
 
 
-class EquityProblemEuclideanInsideReliability(Problem):
+class CombinedPrincipleEuclidean(Problem):
     '''
-    According to the explanation given in the thesis, this is the Priority-based Equity objective formulation. The
+    According to the explanation given in the thesis, this is the Proportionality-based Equity objective formulation. The
     goal is to minimize the distance between the ratio of allocation and demand of the objectives, also known as the reliability.
     Moreover, the objectives of the case-study are optimized.
 
@@ -23,10 +24,19 @@ class EquityProblemEuclideanInsideReliability(Problem):
 
     def __init__(self, n_decision_vars, n_objectives,
                  n_years, rbf):
-        super(EquityProblemEuclideanInsideReliability, self).__init__(n_decision_vars, n_objectives)
+        super(CombinedPrincipleEuclidean, self).__init__(n_decision_vars, n_objectives)
 
         # initialize rbf
         self.types[:] = rbf.platypus_types
+
+        # initialize storing results
+        # self.list_gini_std = []
+        # self.list_gini_mean = []
+        # self.list_eucli_std = []
+        # self.list_eucli_mean = []
+        # self.list_j_hydro_reliability = []
+        # self.list_gini_std_monthly = []
+        # self.list_eucli_std_monthly = []
 
         # initialize model
         self.susquehanna_river = SusquehannaModel(108.5, 505.0, 5, n_years, rbf)
@@ -43,139 +53,142 @@ class EquityProblemEuclideanInsideReliability(Problem):
     def evaluate(self, solution):
         x = solution.variables[:]
         self.function = self.susquehanna_river.evaluate
-        # print("printing the function")
-        # print(self.function)
+
         y = self.function(x)
+
+        # other results in the model
+        # self.list_gini_std.append(self.susquehanna_river.gini_monthly_std_coeff)
+        # self.list_gini_mean.append(self.susquehanna_river.gini_yearly_mean_coeff)
+        # self.list_eucli_std.append(self.susquehanna_river.eucli_monthly_std_coeff)
+        # self.list_eucli_mean.append(self.susquehanna_river.eucli_yearly_mean_coeff)
+        # self.list_j_hydro_reliability.append(self.susquehanna_river.j_hydro_reliability_yearly_mean)
+        # self.list_gini_std_monthly.append(self.susquehanna_river.gini_monthly)
+        # self.list_eucli_std_monthly.append(self.susquehanna_river.eucli_monthly)
+
+
+        df_results = pd.concat([
+            pd.Series(y[0], dtype='float64'),
+            pd.Series(y[1], dtype='float64'),
+            pd.Series(y[2], dtype='float64'),
+            pd.Series(y[3], dtype='float64'),
+            pd.Series(y[4], dtype='float64'),
+            pd.Series(y[5], dtype='float64'),
+            pd.Series(self.susquehanna_river.gini_monthly_std_coeff),
+            pd.Series(self.susquehanna_river.gini_yearly_mean_coeff),
+            pd.Series(self.susquehanna_river.eucli_monthly_std_coeff),
+            pd.Series(self.susquehanna_river.eucli_yearly_mean_coeff),
+            pd.Series(self.susquehanna_river.gini_monthly),
+            pd.Series(self.susquehanna_river.eucli_monthly),
+            pd.Series(self.susquehanna_river.j_hydro_reliability_yearly_mean)
+        ], axis=1)
+
+        df_results.to_csv("euclidean_std_results.csv", mode='a', index = False, header = False)
+
         y = list(y)
 
-        index_nums = [0, 1, 2, 3, 4, 5, 7]
-        solution_set = [y[var] for var in index_nums]
-        # print(solution_set)
-        # self.add_objective(euclidean_distance, name = 'equity')
+        # euclidean mean is index number 7
+        index_nums_mean = [0, 1, 2, 3, 4, 5, 8]
 
+        # euclidean standard deviation is index number 9
+        index_nums_std = [0, 1, 2, 3, 4, 5, 10]
+
+        # specify here which formulation you are using
+
+        index_nums = index_nums_std
+
+        # specify solution set which will be added to objectives
+
+        solution_set = [y[var] for var in index_nums]
         solution.objectives[:] = solution_set
 
-        # egalitarian_aggregated except hydropower objective
-        # apply direction of optimization to each objective
 
         solution.objectives[:] = [solution.objectives[i] * self.directions[i] for i in range(len(solution.objectives))]
-
-
-class EquityProblemEuclideanOutsideReliability(Problem):
-    '''
-    According to the explanation given in the thesis, this is the Priority-based Equity objective formulation. The
-    goal is to minimize the distance between the ratio of allocation and demand of the objectives. Moreover, the
-    objectives of the case-study are optimized.
-
-    Note that we calculate the distance between the objectives after running the model, and subsequently, results are optimized.
-
-    Input:
-
-    Problem: type Platypus.Problem
-
-    Output:
-
-    solution: type dictionary
-    '''
-
-    def __init__(self, n_decision_vars, n_objectives,
-                 n_years, rbf):
-        super(EquityProblemEuclideanOutsideReliability, self).__init__(n_decision_vars, n_objectives)
-
-        # initialize rbf
-        self.types[:] = rbf.platypus_types
-
-        # initialize model
-        self.susquehanna_river = SusquehannaModel(108.5, 505.0, 5, n_years, rbf)
-        self.susquehanna_river.set_log(False)
-        # Set direction of optimization for each objective
-        self.directions[0] = Problem.MAXIMIZE  # hydropower
-        self.directions[1] = Problem.MAXIMIZE  # atomic power plant
-        self.directions[2] = Problem.MAXIMIZE  # baltimore
-        self.directions[3] = Problem.MAXIMIZE  # chester
-        self.directions[4] = Problem.MINIMIZE  # environment
-        self.directions[5] = Problem.MAXIMIZE  # recreation
-        self.directions[6] = Problem.MINIMIZE  # equity
-
-    @staticmethod
-    def array_results(x_input):
-        arrays = []
-        for i in x_input:
-            new_array = [i]
-            arrays.append(new_array)
-        # print("printing the arrays", arrays)
-        # print("this is x_input", x_input)
-        return arrays
-
-    def euclidean_distance_scipy(x_input):
-        two_dim_array = SusquehannaModel.array_results(x_input)
-        total_distance = pdist(two_dim_array, 'euclidean').sum()
-        return total_distance
-
-    # @staticmethod
-    # def euclidean_distance_singular(x1, x2):
-    #     if len(x1) != len(x2):
-    #         raise ValueError("Both points must be of same length")
-    #
-    #     squared_distance = 0
-    #     for i in range(len(x1)):
-    #         squared_distance += (x1[i] - x2[i]) ** 2
-    #     distance = math.sqrt(squared_distance)
-    #
-    #     return distance
-    #
-    # def euclidean_distance_multiple(x_input):
-    #     total_distance = 0
-    #     x_array = SusquehannaModel.array_results(x_input)
-    #     for i in range(len(x_array)):
-    #         for j in range(len(x_array)):
-    #             if i != j:
-    #                 # print("x_array[i]", x_array[i])
-    #                 total_distance += SusquehannaModel.euclidean_distance_singular(x_array[i], x_array[j])
-    #             # print("total_distance", total_distance)
-    #             else:
-    #                 pass
-    #     total_distance_remove_duplicates = total_distance/2
-    #     return total_distance_remove_duplicates
-
-    # def reliability_std(gini_coefficient_array):
-    #     array_dealer = np.std(gini_coefficient_array)
-    #     return array_dealer
-
-    def evaluate(self, solution):
-        x = solution.variables[:]
-        self.function = self.susquehanna_river.evaluate
-        # print("printing the function")
-        # print(self.function)
-        y = self.function(x)
-        y = list(y)
-
-        # objectives_reliability = y[0:6]
-
-        index_nums = [1, 2, 3, 4, 5, 8]
-        objectives_reliability = [y[val] for val in index_nums]
-        # print("objectives_reliability", objectives_reliability)
-
-        # for i in range(len(objectives_reliability)):
-        # if i != 0: # ignoring hydropower objective for now since the objective is defined differently
-        euclidean_distance = EquityProblemEuclideanOutsideReliability.euclidean_distance_scipy(
-            objectives_reliability)
+#
+# class CombinedPrincipleEuclideanPostOptimization(Problem):
+#     '''
+#     According to the explanation given in the thesis, this is the Priority-based Equity objective formulation. The
+#     goal is to minimize the distance between the ratio of allocation and demand of the objectives. Moreover, the
+#     objectives of the case-study are optimized.
+#
+#     Note that we calculate the distance between the objectives after running the model, and subsequently, results are optimized.
+#
+#     Input:
+#
+#     Problem: type Platypus.Problem
+#
+#     Output:
+#
+#     solution: type dictionary
+#     '''
+#
+#     def __init__(self, n_decision_vars, n_objectives,
+#                  n_years, rbf):
+#         super(CombinedPrincipleEuclideanPostOptimization, self).__init__(n_decision_vars, n_objectives)
+#
+#         # initialize rbf
+#         self.types[:] = rbf.platypus_types
+#
+#         # initialize model
+#         self.susquehanna_river = SusquehannaModel(108.5, 505.0, 5, n_years, rbf)
+#         self.susquehanna_river.set_log(False)
+#         # Set direction of optimization for each objective
+#         self.directions[0] = Problem.MAXIMIZE  # hydropower
+#         self.directions[1] = Problem.MAXIMIZE  # atomic power plant
+#         self.directions[2] = Problem.MAXIMIZE  # baltimore
+#         self.directions[3] = Problem.MAXIMIZE  # chester
+#         self.directions[4] = Problem.MINIMIZE  # environment
+#         self.directions[5] = Problem.MAXIMIZE  # recreation
+#         self.directions[6] = Problem.MINIMIZE  # equity
+#
+#     @staticmethod
+#     def array_results(x_input):
+#         arrays = []
+#         for i in x_input:
+#             new_array = [i]
+#             arrays.append(new_array)
+#         # print("printing the arrays", arrays)
+#         # print("this is x_input", x_input)
+#         return arrays
+#
+#     def euclidean_distance_scipy(x_input):
+#         two_dim_array = SusquehannaModel.array_results(x_input)
+#         total_distance = pdist(two_dim_array, 'euclidean').sum()
+#         return total_distance
+#
+#     def evaluate(self, solution):
+#         x = solution.variables[:]
+#         self.function = self.susquehanna_river.evaluate
+#         # print("printing the function")
+#         # print(self.function)
+#         y = self.function(x)
+#         y = list(y)
+#
+#         # objectives_reliability = y[0:6]
+#
+#         index_nums = [1, 2, 3, 4, 5, 8]
+#         objectives_reliability = [y[val] for val in index_nums]
+#         # print("objectives_reliability", objectives_reliability)
+#
+#         # for i in range(len(objectives_reliability)):
+#         # if i != 0: # ignoring hydropower objective for now since the objective is defined differently
+#         euclidean_distance = EquityProblemEuclideanOutsideReliability.euclidean_distance_scipy(
+#             objectives_reliability)
 
         # else:
         #     pass
 
         # print("\n", euclidean_distance)
 
-        solution_set = y[0:6]
-        solution_set.append(euclidean_distance)
-        # self.add_objective(euclidean_distance, name = 'equity')
-
-        solution.objectives[:] = solution_set
-
-        # egalitarian_aggregated except hydropower objective
-        # apply direction of optimization to each objective
-
-        solution.objectives[:] = [solution.objectives[i] * self.directions[i] for i in range(len(solution.objectives))]
+        # solution_set = y[0:6]
+        # solution_set.append(euclidean_distance)
+        # # self.add_objective(euclidean_distance, name = 'equity')
+        #
+        # solution.objectives[:] = solution_set
+        #
+        # # egalitarian_aggregated except hydropower objective
+        # # apply direction of optimization to each objective
+        #
+        # solution.objectives[:] = [solution.objectives[i] * self.directions[i] for i in range(len(solution.objectives))]
 
 ########################################## INSIDE OBJECTIVE FORMULATIONS #################################################################
 

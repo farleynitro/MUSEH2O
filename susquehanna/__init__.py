@@ -3,6 +3,7 @@ from . import problem_formulation_euclidean
 from . import smash
 from . import problem_formulation_gini
 from . import problem_formulation_original
+from . import problem_formulation_euclidean
 from . import susquehanna_model
 from . import utils
 from . import rbf

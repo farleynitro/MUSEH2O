@@ -8,7 +8,6 @@ from scipy.spatial.distance import cdist
 
 def original_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -17,12 +16,9 @@ def original_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
 
     # sum over inputs
@@ -40,7 +36,6 @@ def original_rbf(rbf_input, centers, radii, weights):
 
 def squared_exponential_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -49,12 +44,9 @@ def squared_exponential_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
 
     # sum over inputs
@@ -73,7 +65,6 @@ def squared_exponential_rbf(rbf_input, centers, radii, weights):
 
 def gaussian_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -82,12 +73,9 @@ def gaussian_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     a = rbf_input[np.newaxis, :] - centers
     n = a / radii
@@ -104,7 +92,6 @@ def gaussian_rbf(rbf_input, centers, radii, weights):
 
 def gaussian_rbf_lit(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -113,12 +100,9 @@ def gaussian_rbf_lit(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     a = cdist(rbf_input[np.newaxis, :], centers)
     n = a.T * radii  # /
@@ -135,7 +119,6 @@ def gaussian_rbf_lit(rbf_input, centers, radii, weights):
 
 def inverse_quadratic_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -144,12 +127,9 @@ def inverse_quadratic_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     # a = rbf_input[np.newaxis, :] - centers
     a = cdist(rbf_input[np.newaxis, :], centers)
@@ -166,7 +146,6 @@ def inverse_quadratic_rbf(rbf_input, centers, radii, weights):
 
 def inverse_quadratic_rbf_lit(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -175,12 +154,9 @@ def inverse_quadratic_rbf_lit(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     a = cdist(rbf_input[np.newaxis, :], centers)
     b = a.T * radii
@@ -196,7 +172,6 @@ def inverse_quadratic_rbf_lit(rbf_input, centers, radii, weights):
 
 def inverse_multiquadric_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -205,12 +180,9 @@ def inverse_multiquadric_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     # a = rbf_input[np.newaxis, :] - centers
     a = cdist(rbf_input[np.newaxis, :], centers)
@@ -225,7 +197,6 @@ def inverse_multiquadric_rbf(rbf_input, centers, radii, weights):
 
 def inverse_multiquadric_rbf_lit(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -234,12 +205,9 @@ def inverse_multiquadric_rbf_lit(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     a = cdist(rbf_input[np.newaxis, :], centers)
     b = (a.T * radii) ** 2
@@ -253,7 +221,6 @@ def inverse_multiquadric_rbf_lit(rbf_input, centers, radii, weights):
 
 def exponential_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -262,12 +229,9 @@ def exponential_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     a = cdist(rbf_input[np.newaxis, :], centers)
     b = a.T / radii
@@ -280,7 +244,6 @@ def exponential_rbf(rbf_input, centers, radii, weights):
 
 def matern32_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -289,12 +252,9 @@ def matern32_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     distances = cdist(rbf_input[np.newaxis, :], centers)
     sqrt = np.sqrt(3) * np.sum(distances.T / radii, axis=1)
@@ -314,7 +274,6 @@ def matern32_rbf(rbf_input, centers, radii, weights):
 
 def matern52_rbf(rbf_input, centers, radii, weights):
     """
-
     Parameters
     ----------
     rbf_input : numpy array
@@ -323,12 +282,9 @@ def matern52_rbf(rbf_input, centers, radii, weights):
                 2-D, shape is (n_rbfs X n_inputs)
     radii :     2-D, shape is (n_rbfs X n_inputs)
     weights :   2-D, shape is (n_rbfs X n_outputs)
-
     Returns
     -------
     numpy array
-
-
     """
     distances = cdist(rbf_input[np.newaxis, :], centers)
     sqrt = np.sqrt(5) * np.sum(distances.T / radii, axis=1)
@@ -404,7 +360,6 @@ class RBF:
         outputs = self.rbf(inputs, self.centers, self.radii, self.weights)
 
         return outputs
-
 
 # def multiquadric_rbf(rbf_input, centers, radii, weights):
 #     """
