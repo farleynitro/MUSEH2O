@@ -8,7 +8,7 @@ import pandas as pd
 ########################################## INSIDE OBJECTIVE FORMULATIONS #################################################################
 
 
-class UtilitarianProblem(Problem):
+class TraditionalPrinciple(Problem):
     '''
     According to the explanation given in the thesis, this is the Original objective formulation. The
     goal is to maximize the direction of all objectives in a consequentialist manner. Therefore we maximize
@@ -24,7 +24,7 @@ class UtilitarianProblem(Problem):
                  n_objectives,
                  n_years,
                  rbf):
-        super(UtilitarianProblem, self).__init__(n_decision_vars,
+        super(TraditionalPrinciple, self).__init__(n_decision_vars,
                                               n_objectives)
 
         # # initialize empty dataframe to store results
@@ -35,7 +35,7 @@ class UtilitarianProblem(Problem):
 
         #initialize model
         self.susquehanna_river = SusquehannaModel(108.5, 505.0, 5, n_years, rbf)
-        self.susquehanna_river.set_log(True)
+        self.susquehanna_river.set_log(False)
 
         # self.list_gini_std = []
         # self.list_gini_mean = []
@@ -73,23 +73,23 @@ class UtilitarianProblem(Problem):
         # self.list_gini_std_monthly.append(self.susquehanna_river.gini_monthly)
         # self.list_eucli_std_monthly.append(self.susquehanna_river.eucli_monthly)
 
-        df_results = pd.concat([
-            pd.Series(y[0], dtype='float64'),
-            pd.Series(y[1], dtype='float64'),
-            pd.Series(y[2], dtype='float64'),
-            pd.Series(y[3], dtype='float64'),
-            pd.Series(y[4], dtype='float64'),
-            pd.Series(y[5], dtype='float64'),
-            pd.Series(self.susquehanna_river.gini_monthly_std_coeff),
-            pd.Series(self.susquehanna_river.gini_yearly_mean_coeff),
-            pd.Series(self.susquehanna_river.eucli_monthly_std_coeff),
-            pd.Series(self.susquehanna_river.eucli_yearly_mean_coeff),
-            pd.Series(self.susquehanna_river.gini_monthly),
-            pd.Series(self.susquehanna_river.eucli_monthly),
-            pd.Series(self.susquehanna_river.j_hydro_reliability_yearly_mean)
-        ], axis=1)
-
-        df_results.to_csv("utilitarian_problem_results.csv", mode='a', index = False, header = False)
+        # df_results = pd.concat([
+        #     pd.Series(y[0], dtype='float64'),
+        #     pd.Series(y[1], dtype='float64'),
+        #     pd.Series(y[2], dtype='float64'),
+        #     pd.Series(y[3], dtype='float64'),
+        #     pd.Series(y[4], dtype='float64'),
+        #     pd.Series(y[5], dtype='float64'),
+        #     pd.Series(self.susquehanna_river.gini_monthly_std_coeff),
+        #     pd.Series(self.susquehanna_river.gini_yearly_mean_coeff),
+        #     pd.Series(self.susquehanna_river.eucli_monthly_std_coeff),
+        #     pd.Series(self.susquehanna_river.eucli_yearly_mean_coeff),
+        #     pd.Series(self.susquehanna_river.gini_monthly),
+        #     pd.Series(self.susquehanna_river.eucli_monthly),
+        #     pd.Series(self.susquehanna_river.j_hydro_reliability_yearly_mean)
+        # ], axis=1)
+        #
+        # df_results.to_csv("utilitarian_problem_results.csv", mode='a', index = False, header = False)
 
         # set objective values for only original problem posed [0:5]
         solution.objectives[:] = y[0:6]

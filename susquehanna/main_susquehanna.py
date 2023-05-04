@@ -10,10 +10,8 @@ import os
 import pandas as pd
 import random
 from platypus import EpsNSGAII, ProcessPoolEvaluator
-    # Other evaluators seem to not yield faster results: Evaluator, PoolEvaluator, MultiprocessingEvaluator
-from problem_formulation_euclidean import  CombinedPrincipleEuclidean
-from problem_formulation_gini import CombinedPrincipleGini
-from problem_formulation_original import UtilitarianProblem
+# Other evaluators seem to not yield faster results: Evaluator, PoolEvaluator, MultiprocessingEvaluator
+from problem_formulation_original import TraditionalPrinciple
 import rbf_functions
 
 class TrackProgress:
@@ -51,12 +49,12 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
     header = None
 
     header = [
-        "hydropower reliability",
-        "atomicpowerplant reliability",
+        "hydropower revenue",
+        "atomic plant reliability",
         "baltimore reliability",
         "chester reliability",
         "environment reliability",
-        "recreation reliability",
+        "recreation reliability"
     ]
 
     with open(
@@ -86,59 +84,47 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
     df_hv.to_csv(f"{output_dir}/{objective_formulation}/{seed_id}_hypervolume.csv")
 
 def main():
-    seeds = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+    seeds = [10, 20, 30, 40, 50]
     entry = rbf_functions.original_rbf
 
-    for seed in seeds:
-        random.seed(seed)
-        n_inputs = 2
-        n_outputs = 4
-        n_years = 1
+    # Model setup with rbf
+    n_inputs = 2
+    n_outputs = 4
+    n_years = 1
+    n_objectives_traditional = 6
 
-        # objectives, based on the distance based objective we can change the number of objectives.
+    # rbf setup
+    n_rbfs = 4
 
-        n_objectives_utilitarian = 6
-        n_objectives_justice = 7
+    rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=entry)
+    n_decision_vars = len(rbf.platypus_types)
 
-        # rbf setup
-        n_rbfs = 4
+    # choose out of the following problems
+    # 7 different objective formulations in total. They are meant for test runs where we test both the distance based optimization
+    # inside and outside the objective formulation. In the original problem we do not test it.
 
-        rbf = rbf_functions.RBF(n_rbfs, n_inputs, n_outputs, rbf_function=entry)
-        n_decision_vars = len(rbf.platypus_types)
+    traditional = TraditionalPrinciple(n_decision_vars, n_objectives_traditional,
+                                       n_years, rbf)
 
-        epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05]
 
-        # choose out of the following problems
-        # 7 different objective formulations in total. They are meant for test runs where we test both the distance based optimization
-        # inside and outside the objective formulation. In the original problem we do not test it.
+    # choose problem
+    problem_choices = [traditional]
 
-        utilitarian = UtilitarianProblem(n_decision_vars, n_objectives_utilitarian,
-                                   n_years, rbf)
+    for problem_choice in problem_choices:
+        for seed in seeds:
+            random.seed(seed)
 
-        ############## FOR EUCLIDEAN ####################
-        euclidean_inside = CombinedPrincipleEuclidean(n_decision_vars, n_objectives_justice,
-                                                                            n_years, rbf)
-        # euclidean_outside = CombinedPrincipleEuclideanPostOptimization(n_decision_vars, n_objectives_justice,
-        #                                                                     n_years, rbf)
 
-        ################ FOR GINI ######################
+            # leave it as is
+            epsilons = [0.5, 0.05, 0.05, 0.05, 0.001, 0.05, 0.1]
 
-        gini_inside = CombinedPrincipleGini(n_decision_vars, n_objectives_justice,
-                                                                            n_years, rbf)
-        # gini_outside = CombinedPrincipleGiniPostOptimization(n_decision_vars, n_objectives_justice,
-        #                                                                     n_years, rbf)
-
-        # choose problem
-        problem_choice = euclidean_inside
-
-        # run all problems
-        track_progress = TrackProgress()
-        with ProcessPoolEvaluator() as evaluator:
-            algorithm = EpsNSGAII(problem_choice, epsilons=epsilons, evaluator=evaluator)
-            algorithm.run(250000, track_progress)
-        store_results(
-            algorithm, track_progress, "output_farley", f"{problem_choice.__class__.__name__}", seed
-        )
+            track_progress = TrackProgress()
+            with ProcessPoolEvaluator() as evaluator:
+                algorithm = EpsNSGAII(problem_choice, epsilons=epsilons, evaluator=evaluator)
+                algorithm.run(500000, track_progress)
+            store_results(
+                algorithm, track_progress, "output_farley", f"{problem_choice.__class__.__name__}", seed
+            )
 
 
 if __name__ == "__main__":

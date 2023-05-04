@@ -13,21 +13,20 @@ from sklearn.preprocessing import MinMaxScaler
 from platypus import Problem
 from deap.tools import _hypervolume
 
-from rbf import rbf_functions
+import rbf_functions
 from hypervolume_jk import EpsilonIndicatorMetric
 
 rbfs = [
-    rbf_functions.original_rbf,
-    rbf_functions.squared_exponential_rbf,
-    rbf_functions.inverse_quadratic_rbf,
-    rbf_functions.inverse_multiquadric_rbf,
-    rbf_functions.exponential_rbf,
-    rbf_functions.matern32_rbf,
-    rbf_functions.matern52_rbf,
+    rbf_functions.original_rbf
 ]
 
+ethical_formulations = ['CombinedPrincipleGiniMean',
+                        'CombinedPrincipleGiniStd',
+                        'CombinedPrincipleEuclideanMean',
+                        'CombinedPrincipleEuclideanStd',
+]
 
-def load_archives():
+def load_archives(folder_destination):
     """
 
     Returns
@@ -41,10 +40,10 @@ def load_archives():
 
     archives = defaultdict(dict)
     list_of_archives = []
-
-    for entry in rbfs:
-        name = entry.__name__
-        output_dir = f"../output/{name}/"
+    folder_destination = folder_destination
+    for entry in ethical_formulations:
+        name = entry
+        output_dir = f"{folder_destination}/{name}/"
         for i in os.listdir(output_dir):
             if i.endswith("_hypervolume.csv"):  # hypervolume.csv contains
                 archives_by_nfe = pd.read_csv(output_dir + i)
@@ -62,6 +61,7 @@ def load_archives():
                                 "chester",
                                 "environment",
                                 "recreation",
+                                "equity"
                             ]
                         )
                         },
@@ -79,7 +79,7 @@ def load_archives():
 def get_platypus_problem():
     # setup platypus problem
     n_rbfs = 4
-    n_objs = 6
+    n_objs = 7
     n_vars = n_rbfs * 8
 
     problem = Problem(n_vars, n_objs)
@@ -91,6 +91,8 @@ def get_platypus_problem():
     problem.directions[3] = Problem.MAXIMIZE  # chester
     problem.directions[4] = Problem.MINIMIZE  # environment
     problem.directions[5] = Problem.MAXIMIZE  # recreation
+    problem.directions[6] = Problem.MINIMIZE  # equity
+
 
     problem.outcome_names = [
         "hydropower",
@@ -99,6 +101,7 @@ def get_platypus_problem():
         "chester",
         "environment",
         "recreation",
+        "equity",
     ]
 
     return problem
@@ -106,6 +109,7 @@ def get_platypus_problem():
 
 def get_reference_sets():
     ref_dir = "./refsets/"
+    ref_dir = folder_destination
     ref_sets = {}
     for n in rbfs:
         name = n.__name__
@@ -150,7 +154,7 @@ def calculate_hypervolume(maxima, generation):
 
 
 if __name__ == "__main__":
-    archives, list_of_archives = load_archives()
+    archives, list_of_archives = load_archives(folder_destination)
 
     problem = get_platypus_problem()
     ref_sets, global_refset = get_reference_sets()
@@ -166,19 +170,18 @@ if __name__ == "__main__":
     overall_starttime = datetime.datetime.now()
 
     with multiprocessing.Pool() as pool:
-        for rbf in rbfs:
-            rbf_starttime = datetime.datetime.now()
-            rbf = rbf.__name__
+        for entry in ethical_formulations:
+            entry_starttime = datetime.datetime.now()
 
             if refset == RefSet.GLOBAL:
                 reference_set = global_refset
             else:
-                reference_set = ref_sets[rbf]
+                reference_set = ref_sets[entry]
 
             reference_set = transform_data(reference_set.values, scaler, problem)
             maxima = np.max(reference_set, axis=0)
 
-            archive = archives[rbf]
+            archive = archives[entry]
             scores = []
             for seed_id, seed_archives in archive.items():
                 nfes, seed_archives = zip(*seed_archives)
@@ -191,10 +194,10 @@ if __name__ == "__main__":
 
             # concat into single dataframe per rbf
             scores = pd.concat(scores, axis=0, ignore_index=True)
-            scores.to_csv(f"./calculated_metrics/{rbf}_{refset.value}.csv")
+            scores.to_csv(f"./calculated_metrics/{entry}_{refset.value}.csv")
 
-            delta = datetime.datetime.now() - rbf_starttime
-            print(f"{rbf}: {delta}")
+            delta = datetime.datetime.now() - entry_starttime
+            print(f"{entry}: {delta}")
 
     delta = datetime.datetime.now() - overall_starttime
     print(f"overall: {delta}")

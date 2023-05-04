@@ -61,6 +61,8 @@ class SusquehannaModel:
         self.j_hydro_reliability_yearly_mean = []
         self.gini_monthly = []
         self.eucli_monthly = []
+        self.gini_ratio = []
+        self.eucli_ratio = []
 
 
         # historical record #1000 simulation horizon (1996,2001)
@@ -213,6 +215,8 @@ class SusquehannaModel:
             self.j_hydro_reliability_yearly_mean,
             self.gini_monthly,
             self.eucli_monthly,
+            self.gini_ratio,
+            self.eucli_ratio,
         )
 
     def apply_rbf_policy(self, rbf_input):
@@ -818,6 +822,8 @@ class SusquehannaModel:
     #             G[i] = weight * (1 - c / (np.sum(h_target[start_index:end_index] > 0) * days_in_month[i]))
     #     return G
 
+    ## FIXME: CURRENT APPROACH HAS A BIG ASSUMPTION. FIND A BETTER METHOD TO CONVERT REVENUE OUTPUT TO RELIABILITY
+
     @staticmethod
     def j_hydro_reliability_energy(hp_generated, time_step):
         hp_reliability = 0
@@ -826,9 +832,10 @@ class SusquehannaModel:
         power_MR = 1070 # MW
         power_Co = 572 # MW
         efficieny_dams = 0.9 # average efficiency of hydrodams
+        devaluation_reliability = 0.39 # to consider inflation over reference nowadays, and more realistic values, ASSUMPTION !!!
 
         # Interested only in hydroproduction of the Conowingo dam
-        q_target_yearly = 1.6 * pow(10, 9) * (power_Co/(power_MR + power_Co)) # kWh / year
+        q_target_yearly = devaluation_reliability * (1.6 * pow(10, 9) * (power_Co/(power_MR + power_Co))) # kWh / year
 
         if time_step == 'daily':
             q_target_daily = (q_target_yearly * hours_in_day) / hours_in_year # kWh/day
@@ -1177,6 +1184,9 @@ class SusquehannaModel:
         gini_mean = SusquehannaModel.gini_coefficient_scipy(reliability_yearly)
         eucli_mean = SusquehannaModel.euclidean_distance_scipy(reliability_yearly)
 
+        gini_ratio = gini_std/gini_mean
+        eucli_ratio = eucli_std/eucli_mean
+
         # log level / release
         if self.log_objectives:
             self.blevel_CO.append(level_co)
@@ -1192,6 +1202,8 @@ class SusquehannaModel:
             self.j_hydro_reliability_yearly_mean.append(j_hydro_reliability_yearly_average)
             self.gini_monthly.append(reliability_gini)
             self.eucli_monthly.append(reliability_eucli)
+            self.gini_ratio.append(gini_ratio)
+            self.eucli_ratio.append(eucli_ratio)
 
-        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_reliability_yearly_average, gini_mean, eucli_mean, gini_std,  eucli_std
+        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_reliability_yearly_average, gini_mean, eucli_mean, gini_std,  eucli_std, gini_ratio, eucli_ratio
 

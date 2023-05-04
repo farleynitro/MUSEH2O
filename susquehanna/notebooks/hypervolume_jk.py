@@ -1,4 +1,5 @@
 import multiprocessing
+import rbf_functions
 
 
 from platypus import Hypervolume, Solution, EpsilonBoxArchive, EpsilonIndicator, GenerationalDistance
@@ -147,7 +148,7 @@ def calculate_hv(archive, platypus_problem, reference_set):
     reference_set = rebuild_platypus_population(reference_set, platypus_problem)
     hv = Hypervolume(reference_set=reference_set)
     archive = rebuild_platypus_population(archive, platypus_problem)
-    return hv.calcuate(archive)
+    return hv.calculate(archive)
 
 
 if __name__ == "main":
