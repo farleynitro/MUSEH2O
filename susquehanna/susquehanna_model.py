@@ -1184,8 +1184,8 @@ class SusquehannaModel:
         gini_mean = SusquehannaModel.gini_coefficient_scipy(reliability_yearly)
         eucli_mean = SusquehannaModel.euclidean_distance_scipy(reliability_yearly)
 
-        gini_ratio = gini_std/gini_mean
-        eucli_ratio = eucli_std/eucli_mean
+        gini_ratio_value = gini_std/gini_mean
+        eucli_ratio_value = eucli_std/eucli_mean
 
         # log level / release
         if self.log_objectives:
@@ -1202,8 +1202,8 @@ class SusquehannaModel:
             self.j_hydro_reliability_yearly_mean.append(j_hydro_reliability_yearly_average)
             self.gini_monthly.append(reliability_gini)
             self.eucli_monthly.append(reliability_eucli)
-            self.gini_ratio.append(gini_ratio)
-            self.eucli_ratio.append(eucli_ratio)
+            self.gini_ratio.append(gini_ratio_value)
+            self.eucli_ratio.append(eucli_ratio_value)
 
-        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_reliability_yearly_average, gini_mean, eucli_mean, gini_std,  eucli_std, gini_ratio, eucli_ratio
+        return j_hyd, j_atom, j_balt, j_ches, j_env, j_rec, j_hydro_reliability_yearly_average, gini_mean, eucli_mean, gini_std,  eucli_std, gini_ratio_value, eucli_ratio_value
 

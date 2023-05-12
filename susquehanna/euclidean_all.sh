@@ -2,7 +2,7 @@
 #
 #SBATCH --job-name="eucli_all"
 #SBATCH --partition=compute
-#SBATCH --time=150:00:00
+#SBATCH --time=40:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=48

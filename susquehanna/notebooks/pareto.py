@@ -436,7 +436,6 @@ def flag_nondominated(tables, objectives=None, epsilons=None, **kwargs):
                 if None default to all columns
     epsilons: list of epsilons for the sort, if None default to 1e-9
 
-    Keyword arguments:
     *maximize*      columns to maximize
     *maximize_all*  maximize all columns
     """

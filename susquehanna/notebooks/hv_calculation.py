@@ -5,6 +5,7 @@ from functools import partial
 import itertools
 import multiprocessing
 import os
+import rbf_functions
 
 import numpy as np
 import pandas as pd
@@ -20,10 +21,13 @@ rbfs = [
     rbf_functions.original_rbf
 ]
 
-ethical_formulations = ['CombinedPrincipleGiniMean',
-                        'CombinedPrincipleGiniStd',
-                        'CombinedPrincipleEuclideanMean',
-                        'CombinedPrincipleEuclideanStd',
+ethical_formulations = ['TraditionalPrinciple',
+                        'CombinedTraditionalGiniMean',
+                        'CombinedTraditionalGiniStd',
+                        'CombinedTraditionalGiniRatioStdMean',
+                        'CombinedTraditionalEuclideanMean',
+                        'CombinedTraditionalEuclideanStd',
+                        'CombinedTraditionalEuclideanRatioStdMean',
 ]
 
 def load_archives(folder_destination):
@@ -76,48 +80,67 @@ def load_archives(folder_destination):
     return archives, list_of_archives
 
 
-def get_platypus_problem():
+def get_platypus_problem(n_objs, problem_choice):
     # setup platypus problem
     n_rbfs = 4
-    n_objs = 7
+    n_objs = n_objs
     n_vars = n_rbfs * 8
+    n_years = 1
+    # rbf =
 
+    # problem = problem_choice(n_vars, n_objs, n_years, rbf)
     problem = Problem(n_vars, n_objs)
 
     # matters for hypervolume
-    problem.directions[0] = Problem.MAXIMIZE  # hydropower
-    problem.directions[1] = Problem.MAXIMIZE  # atomic power plant
-    problem.directions[2] = Problem.MAXIMIZE  # baltimore
-    problem.directions[3] = Problem.MAXIMIZE  # chester
-    problem.directions[4] = Problem.MINIMIZE  # environment
-    problem.directions[5] = Problem.MAXIMIZE  # recreation
-    problem.directions[6] = Problem.MINIMIZE  # equity
+    if n_objs == 6:
+        problem.directions[0] = Problem.MAXIMIZE  # hydropower
+        problem.directions[1] = Problem.MAXIMIZE  # atomic power plant
+        problem.directions[2] = Problem.MAXIMIZE  # baltimore
+        problem.directions[3] = Problem.MAXIMIZE  # chester
+        problem.directions[4] = Problem.MINIMIZE  # environment
+        problem.directions[5] = Problem.MAXIMIZE  # recreation
+    elif n_objs == 7:
+        problem.directions[0] = Problem.MAXIMIZE  # hydropower
+        problem.directions[1] = Problem.MAXIMIZE  # atomic power plant
+        problem.directions[2] = Problem.MAXIMIZE  # baltimore
+        problem.directions[3] = Problem.MAXIMIZE  # chester
+        problem.directions[4] = Problem.MINIMIZE  # environment
+        problem.directions[5] = Problem.MAXIMIZE  # recreation
+        problem.directions[6] = Problem.MINIMIZE  # equity
 
-
-    problem.outcome_names = [
-        "hydropower",
-        "atomicpowerplant",
-        "baltimore",
-        "chester",
-        "environment",
-        "recreation",
-        "equity",
-    ]
-
+    if problem_choice == 'TraditionalPrinciple':
+        problem.outcome_names = [
+            "hydropower",
+            "atomicpowerplant",
+            "baltimore",
+            "chester",
+            "environment",
+            "recreation",
+        ]
+    else:
+        problem.outcome_names = [
+            "hydropower",
+            "atomicpowerplant",
+            "baltimore",
+            "chester",
+            "environment",
+            "recreation",
+            "equity",
+        ]
     return problem
 
 
-def get_reference_sets():
-    ref_dir = "./refsets/"
+def get_reference_sets(folder_destination):
+    # ref_dir = "./refsets/"
     ref_dir = folder_destination
     ref_sets = {}
-    for n in rbfs:
-        name = n.__name__
+    for n in ethical_formulations:
+        name = n
         ref_sets[name] = {}
         data = pd.read_csv(f"{ref_dir}{name}_refset.csv")
         ref_sets[name] = data
 
-    global_refset = pd.read_csv(f"{ref_dir}/global_refset.csv")
+    global_refset = pd.read_csv(f"{ref_dir}{problem_choice}_global_refset.csv")
 
     return ref_sets, global_refset
 
@@ -149,15 +172,16 @@ def transform_data(data, scaler, problem):
     return transformed_data
 
 
-def calculate_hypervolume(maxima, generation):
+def calculate_hypervolume(maxima, generation, problem):
     return _hypervolume.hv.hypervolume(generation, maxima)
 
 
 if __name__ == "__main__":
+    folder_destination = f'/Users/farleyrimon/Documents/GitHub/MUSEH2O/susquehanna/refsets/'
     archives, list_of_archives = load_archives(folder_destination)
 
-    problem = get_platypus_problem()
-    ref_sets, global_refset = get_reference_sets()
+    problem = problem
+    ref_sets, global_refset = get_reference_sets(folder_destination)
 
     refset = RefSet.GLOBAL
 
