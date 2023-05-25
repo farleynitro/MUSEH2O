@@ -53,7 +53,7 @@ def store_results(algorithm, track_progress, output_dir, objective_formulation, 
         "atomic plant reliability",
         "baltimore reliability",
         "chester reliability",
-        "environment reliability",
+        "environment shortage",
         "recreation reliability"
     ]
 
@@ -121,9 +121,9 @@ def main():
             track_progress = TrackProgress()
             with ProcessPoolEvaluator() as evaluator:
                 algorithm = EpsNSGAII(problem_choice, epsilons=epsilons, evaluator=evaluator)
-                algorithm.run(250000, track_progress)
+                algorithm.run(250, track_progress)
             store_results(
-                algorithm, track_progress, "output_farley", f"{problem_choice.__class__.__name__}", seed
+                algorithm, track_progress, "output_test_2", f"{problem_choice.__class__.__name__}", seed
             )
 
 

@@ -743,20 +743,20 @@ class SusquehannaModel:
         # # FIXME this probably can be fully vectorized
         # # the modulus is not neeede dif h_target is just
         # # expanded to match the length of h
-        # # j = 0
+        # j = 0
         # for i, h_i in np.ndenumerate(h):
-        #     print("\n the shape of h_i", h_i.size)
+        #     # print("\n the shape of h_i", h_i.size)
         #
         #     tt = i[0] % self.n_days_one_year
         #     if h_i < h_target[tt]:  # h[i] + 1  in flood model
         #         # j +=1
         #         c = c + 1
-            # if h_target[tt] > 0:
-            #     Nw += 1
-        # print(j)
-
-        # is this an element wise comparison?
+        #     if h_target[tt] > 0:
+        #         Nw += 1
+        #
+        # # is this an element wise comparison?
         # G = 1 - c / np.sum(h_target > 0)
+        print(G)
         return G
 
     def g_shortage_index(self, q1, qTarget):
